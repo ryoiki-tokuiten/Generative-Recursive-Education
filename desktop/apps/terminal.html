@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #terminal-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem 0.5rem;
+    line-height: 1.7;
+    scroll-behavior: smooth;
+  }
+
+  #terminal-output::-webkit-scrollbar { width: 4px; }
+  #terminal-output::-webkit-scrollbar-track { background: transparent; }
+  #terminal-output::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+  .line { white-space: pre-wrap; word-break: break-all; }
+  .line.prompt-line { display: flex; gap: 0.35rem; }
+  .c-user { color: #57ab5a; }
+  .c-host { color: #57ab5a; }
+  .c-path { color: #539bf5; }
+  .c-sym { color: #636e7b; }
+  .c-cmd { color: #c9d1d9; }
+  .c-err { color: #f47067; }
+  .c-success { color: #57ab5a; }
+  .c-dir { color: #539bf5; font-weight: 500; }
+  .c-exec { color: #57ab5a; }
+  .c-file { color: #c9d1d9; }
+  .c-link { color: #96d0ff; }
+  .c-dim { color: #636e7b; }
+  .c-accent { color: #e3b341; }
+  .c-bold { font-weight: 700; }
+
+  #input-row {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 1.25rem 0.75rem;
+    gap: 0.35rem;
+    background: #0d1117;
+    border-top: 1px solid #161b22;
+    flex-shrink: 0;
+  }
+
+  #prompt-label { white-space: nowrap; user-select: none; }
+
+  #cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: inherit;
+    caret-color: #57ab5a;
+  }
+
+  #cursor-blink {
+    display: inline-block;
+    width: 8px;
+    height: 1em;
+    background: #57ab5a;
+    vertical-align: text-bottom;
+    animation: blink 1.1s step-start infinite;
+    margin-left: 1px;
+  }
+
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .neofetch-box {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 2rem;
+    margin: 0.25rem 0;
+  }
+  .nf-logo { color: #388bfd; white-space: pre; line-height: 1.5; }
+  .nf-info { line-height: 1.7; }
+  .nf-key { color: #388bfd; font-weight: 500; }
+  .nf-val { color: #c9d1d9; }
+  .nf-sep { color: #636e7b; }
+</style>
+</head>
+<body>
+
+<div id="terminal-output"></div>
+
+<div id="input-row">
+  <span id="prompt-label">
+    <span class="c-user">user</span><span class="c-sym">@</span><span class="c-host">genOS</span><span class="c-sym">:</span><span class="c-path" id="prompt-path">~</span><span class="c-sym">$</span>
+  </span>
+  <input id="cmd-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" autofocus />
+</div>
+
+<script>
+(function() {
+  const output = document.getElementById('terminal-output');
+  const input  = document.getElementById('cmd-input');
+  const promptPath = document.getElementById('prompt-path');
+
+  // ── Virtual Filesystem ────────────────────────────────────────────────────
+  const FS = {
+    '/': { type: 'dir', children: {
+      'home': { type: 'dir', children: {
+        'user': { type: 'dir', children: {
+          'Documents': { type: 'dir', children: {
+            'notes.md': { type: 'file', content: '# Notes\n\nMy personal notes and ideas.\n\n## TODO\n- Learn Rust\n- Read "The Pragmatic Programmer"\n- Build something cool with generative AI' },
+            'projects.txt': { type: 'file', content: 'Active Projects:\n---------------\n1. Generative OS    [active]\n2. Recursive Learn  [done]\n3. GenBlog          [planned]' },
+          }},
+          'Downloads': { type: 'dir', children: {
+            'file.zip': { type: 'file', content: '[binary data]' },
+            'setup.sh': { type: 'file', content: '#!/bin/bash\necho "Setting up environment..."\napt update && apt install -y nodejs npm git\necho "Done!"' },
+          }},
+          '.bashrc': { type: 'file', content: '# ~/.bashrc\nexport PS1="\\u@genOS:\\w$ "\nexport EDITOR=nano\nexport PATH="$HOME/.local/bin:$PATH"\nalias ll="ls -la"\nalias gs="git status"\nalias ga="git add -A"\nalias gc="git commit -m"' },
+          '.config': { type: 'dir', children: {} },
+          'README.md': { type: 'file', content: '# Generative OS\n\nWelcome to your home directory.\nThis terminal is part of the Generative OS desktop environment.' },
+        }},
+      }},
+      'etc': { type: 'dir', children: {
+        'hostname': { type: 'file', content: 'genOS' },
+        'os-release': { type: 'file', content: 'NAME="Generative OS"\nVERSION="1.0.0 LTS"\nID=genos\nID_LIKE=arch\nPRETTY_NAME="Generative OS 1.0 LTS"\nHOME_URL="https://genos.dev"' },
+      }},
+      'usr': { type: 'dir', children: {
+        'bin': { type: 'dir', children: {
+          'bash': { type: 'exec' }, 'ls': { type: 'exec' }, 'cat': { type: 'exec' },
+          'echo': { type: 'exec' }, 'pwd': { type: 'exec' }, 'node': { type: 'exec' },
+          'python3': { type: 'exec' }, 'git': { type: 'exec' }, 'npm': { type: 'exec' },
+        }},
+      }},
+      'tmp': { type: 'dir', children: {} },
+      'var': { type: 'dir', children: { 'log': { type: 'dir', children: {} } } },
+    }},
+  };
+
+  let cwd = '/home/user';
+  let history = [];
+  let histIdx = -1;
+
+  function resolvePath(p) {
+    if (!p) return cwd;
+    if (p === '~') return '/home/user';
+    if (p.startsWith('~/')) p = '/home/user/' + p.slice(2);
+    let parts = (p.startsWith('/') ? p : cwd + '/' + p).split('/').filter(Boolean);
+    let resolved = [];
+    for (let part of parts) {
+      if (part === '.') continue;
+      if (part === '..') resolved.pop();
+      else resolved.push(part);
+    }
+    return '/' + resolved.join('/');
+  }
+
+  function getNode(path) {
+    if (path === '/') return FS['/'];
+    let parts = path.split('/').filter(Boolean);
+    let node = FS['/'];
+    for (let p of parts) {
+      if (!node || node.type !== 'dir' || !node.children[p]) return null;
+      node = node.children[p];
+    }
+    return node;
+  }
+
+  function displayPath(p) {
+    if (p === '/home/user') return '~';
+    if (p.startsWith('/home/user/')) return '~/' + p.slice(11);
+    return p;
+  }
+
+  function updatePrompt() {
+    promptPath.textContent = displayPath(cwd);
+  }
+
+  // ── Output helpers ────────────────────────────────────────────────────────
+  function appendLine(html, cls = '') {
+    const div = document.createElement('div');
+    div.className = 'line ' + cls;
+    div.innerHTML = html;
+    output.appendChild(div);
+    output.scrollTop = output.scrollHeight;
+  }
+
+  function printPromptLine(cmd) {
+    appendLine(
+      `<span class="c-user">user</span><span class="c-sym">@</span><span class="c-host">genOS</span><span class="c-sym">:</span><span class="c-path">${displayPath(cwd)}</span><span class="c-sym">$</span> <span class="c-cmd">${escHtml(cmd)}</span>`,
+      'prompt-line'
+    );
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Commands ─────────────────────────────────────────────────────────────
+  const COMMANDS = {
+    ls(args) {
+      const target = resolvePath(args[0] || '');
+      const node = getNode(target);
+      if (!node) { appendLine(`<span class="c-err">ls: cannot access '${escHtml(args[0]||'')}': No such file or directory</span>`); return; }
+      if (node.type !== 'dir') { appendLine(`<span class="c-file">${escHtml(args[0])}</span>`); return; }
+      const entries = Object.entries(node.children);
+      if (entries.length === 0) return;
+      let html = entries.map(([name, n]) => {
+        if (n.type === 'dir') return `<span class="c-dir">${name}/</span>`;
+        if (n.type === 'exec') return `<span class="c-exec">${name}*</span>`;
+        return `<span class="c-file">${name}</span>`;
+      }).join('  ');
+      appendLine(html);
+    },
+    'ls -la': null,
+    ll(args) { this['ls -la'] ? this['ls -la'](args) : this.ls(args); },
+    cd(args) {
+      const target = resolvePath(args[0] || '/home/user');
+      const node = getNode(target);
+      if (!node) { appendLine(`<span class="c-err">cd: ${escHtml(args[0]||'')}: No such file or directory</span>`); return; }
+      if (node.type !== 'dir') { appendLine(`<span class="c-err">cd: ${escHtml(args[0])}: Not a directory</span>`); return; }
+      cwd = target;
+      updatePrompt();
+    },
+    pwd() { appendLine(escHtml(cwd)); },
+    cat(args) {
+      if (!args[0]) { appendLine('<span class="c-err">cat: missing operand</span>'); return; }
+      const path = resolvePath(args[0]);
+      const node = getNode(path);
+      if (!node) { appendLine(`<span class="c-err">cat: ${escHtml(args[0])}: No such file or directory</span>`); return; }
+      if (node.type === 'dir') { appendLine(`<span class="c-err">cat: ${escHtml(args[0])}: Is a directory</span>`); return; }
+      if (node.content) appendLine(escHtml(node.content).replace(/\n/g,'<br>'));
+    },
+    echo(args) { appendLine(escHtml(args.join(' '))); },
+    clear() { output.innerHTML = ''; },
+    date() { appendLine(new Date().toString()); },
+    whoami() { appendLine('<span class="c-user">user</span>'); },
+    uname(args) {
+      if (args.includes('-a')) appendLine('Linux genOS 6.8.0-genos #1 SMP x86_64 GNU/Linux');
+      else appendLine('Linux');
+    },
+    hostname() { appendLine('genOS'); },
+    uptime() {
+      const h = Math.floor(Math.random()*12)+1;
+      appendLine(`up ${h}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}, 1 user, load average: 0.${Math.floor(Math.random()*50)}, 0.${Math.floor(Math.random()*50)}, 0.${Math.floor(Math.random()*50)}`);
+    },
+    history() {
+      history.forEach((cmd, i) => appendLine(`<span class="c-dim">${String(i+1).padStart(4,' ')}</span>  ${escHtml(cmd)}`));
+    },
+    mkdir(args) {
+      if (!args[0]) { appendLine('<span class="c-err">mkdir: missing operand</span>'); return; }
+      const parentPath = resolvePath(args[0]).split('/').slice(0,-1).join('/') || '/';
+      const name = args[0].split('/').pop();
+      const parent = getNode(parentPath);
+      if (!parent || parent.type !== 'dir') { appendLine(`<span class="c-err">mkdir: cannot create directory '${escHtml(args[0])}': No such file or directory</span>`); return; }
+      if (parent.children[name]) { appendLine(`<span class="c-err">mkdir: cannot create directory '${escHtml(args[0])}': File exists</span>`); return; }
+      parent.children[name] = { type: 'dir', children: {} };
+      appendLine(`<span class="c-success">Directory '${escHtml(name)}' created.</span>`);
+    },
+    touch(args) {
+      if (!args[0]) { appendLine('<span class="c-err">touch: missing operand</span>'); return; }
+      const parentPath = resolvePath(args[0]).split('/').slice(0,-1).join('/') || '/';
+      const name = args[0].split('/').pop();
+      const parent = getNode(parentPath);
+      if (!parent || parent.type !== 'dir') { appendLine(`<span class="c-err">touch: cannot create '${escHtml(args[0])}': No such file or directory</span>`); return; }
+      if (!parent.children[name]) parent.children[name] = { type: 'file', content: '' };
+    },
+    ps() {
+      appendLine('<span class="c-dim">  PID TTY          TIME CMD</span>');
+      appendLine('    1 ?        00:00:01 systemd');
+      appendLine('  342 pts/0    00:00:00 bash');
+      appendLine('  891 pts/0    00:00:00 ps');
+    },
+    neofetch() {
+      const box = document.createElement('div');
+      box.className = 'neofetch-box';
+      box.innerHTML = `
+        <div class="nf-logo">   ____            ___  _____
+  / ___| ___ _ __/ _ \\/ ___|
+ | |  _ / _ \\ '__| | | \\___ \\
+ | |_| |  __/ |  | |_| |___) |
+  \\____|\___|_|   \\___/|____/</div>
+        <div class="nf-info">
+          <div><span class="nf-key">user</span><span class="nf-sep">@</span><span class="nf-key">genOS</span></div>
+          <div><span class="nf-sep">─────────────────</span></div>
+          <div><span class="nf-key">OS:</span> <span class="nf-val">Generative OS 1.0 LTS x86_64</span></div>
+          <div><span class="nf-key">Kernel:</span> <span class="nf-val">6.8.0-genos</span></div>
+          <div><span class="nf-key">Shell:</span> <span class="nf-val">bash 5.2.21</span></div>
+          <div><span class="nf-key">Resolution:</span> <span class="nf-val">${window.screen.width}x${window.screen.height}</span></div>
+          <div><span class="nf-key">Terminal:</span> <span class="nf-val">GenTerm v1.0</span></div>
+          <div><span class="nf-key">CPU:</span> <span class="nf-val">Gen-PROC @ 3.6GHz (8) 64-bit</span></div>
+          <div><span class="nf-key">Memory:</span> <span class="nf-val">4096MiB / 16384MiB (25%)</span></div>
+          <div><span class="nf-key">Packages:</span> <span class="nf-val">1247 (npm), 384 (apt)</span></div>
+          <br>
+          <span style="background:#f47067;padding:0 6px;border-radius:3px">&nbsp;</span>
+          <span style="background:#e3b341;padding:0 6px;border-radius:3px">&nbsp;</span>
+          <span style="background:#57ab5a;padding:0 6px;border-radius:3px">&nbsp;</span>
+          <span style="background:#539bf5;padding:0 6px;border-radius:3px">&nbsp;</span>
+          <span style="background:#bc8cff;padding:0 6px;border-radius:3px">&nbsp;</span>
+          <span style="background:#96d0ff;padding:0 6px;border-radius:3px">&nbsp;</span>
+        </div>`;
+      output.appendChild(box);
+      output.scrollTop = output.scrollHeight;
+    },
+    help() {
+      appendLine('<span class="c-accent c-bold">Available commands:</span>');
+      const cmds = [
+        ['ls [dir]','list directory contents'],
+        ['cd [dir]','change directory'],
+        ['cat [file]','display file contents'],
+        ['pwd','print working directory'],
+        ['echo [text]','print text'],
+        ['mkdir [dir]','create directory'],
+        ['touch [file]','create empty file'],
+        ['ps','list processes'],
+        ['date','current date and time'],
+        ['whoami','current user'],
+        ['uname [-a]','system information'],
+        ['hostname','print hostname'],
+        ['uptime','system uptime'],
+        ['history','command history'],
+        ['neofetch','system info art'],
+        ['clear','clear terminal'],
+        ['help','show this help'],
+      ];
+      cmds.forEach(([cmd,desc]) => {
+        appendLine(`  <span class="c-link">${cmd.padEnd(18,' ')}</span><span class="c-dim">${escHtml(desc)}</span>`);
+      });
+    },
+  };
+
+  // ── Input handler ─────────────────────────────────────────────────────────
+  function run(raw) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+
+    history.unshift(trimmed);
+    if (history.length > 200) history.pop();
+    histIdx = -1;
+
+    printPromptLine(trimmed);
+
+    const parts = trimmed.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1);
+
+    const fn = COMMANDS[cmd];
+    if (fn) {
+      fn.call(COMMANDS, args);
+    } else if (cmd === 'll') {
+      COMMANDS.ls(['-l', ...args]);
+    } else {
+      appendLine(`<span class="c-err">bash: ${escHtml(cmd)}: command not found</span>`);
+      appendLine(`<span class="c-dim">Type 'help' for available commands.</span>`);
+    }
+  }
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      run(input.value);
+      input.value = '';
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (histIdx < history.length - 1) { histIdx++; input.value = history[histIdx]; }
+      input.setSelectionRange(input.value.length, input.value.length);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (histIdx > 0) { histIdx--; input.value = history[histIdx]; }
+      else { histIdx = -1; input.value = ''; }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      // Tab completion
+      const val = input.value;
+      const parts = val.split(/\s+/);
+      if (parts.length > 1) {
+        const partial = parts[parts.length - 1];
+        const dir = resolvePath(partial.includes('/') ? partial.slice(0, partial.lastIndexOf('/') + 1) : '');
+        const node = getNode(dir === '' ? cwd : dir);
+        if (node && node.type === 'dir') {
+          const prefix = partial.split('/').pop();
+          const matches = Object.keys(node.children).filter(k => k.startsWith(prefix));
+          if (matches.length === 1) {
+            parts[parts.length - 1] = (partial.includes('/') ? partial.slice(0, partial.lastIndexOf('/') + 1) : '') + matches[0];
+            input.value = parts.join(' ');
+          } else if (matches.length > 1) {
+            appendLine(matches.map(m => escHtml(m)).join('  '));
+          }
+        }
+      } else {
+        const partial = val;
+        const matches = Object.keys(COMMANDS).filter(k => k.startsWith(partial));
+        if (matches.length === 1) input.value = matches[0];
+        else if (matches.length > 1) appendLine(matches.map(m => escHtml(m)).join('  '));
+      }
+    } else if (e.key === 'c' && e.ctrlKey) {
+      e.preventDefault();
+      appendLine(`<span class="c-user">user</span><span class="c-sym">@</span><span class="c-host">genOS</span><span class="c-sym">:</span><span class="c-path">${displayPath(cwd)}</span><span class="c-sym">$</span> ${escHtml(input.value)}<span class="c-dim">^C</span>`, 'prompt-line');
+      input.value = '';
+    } else if (e.key === 'l' && e.ctrlKey) {
+      e.preventDefault();
+      output.innerHTML = '';
+    }
+  });
+
+  document.addEventListener('click', () => input.focus());
+
+  // Initial welcome
+  COMMANDS.neofetch([]);
+  appendLine('');
+  appendLine('<span class="c-dim">Type \'help\' to see available commands.</span>');
+  appendLine('');
+})();
+</script>
+</body>
+</html>

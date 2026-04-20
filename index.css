@@ -1,0 +1,4 @@
+/* index.css — Global OS baseline styles (Tailwind handles utilities via CDN) */
+
+/* Nothing extra needed here; all global base styles are in index.html <style> block.
+   This file must exist so the <link> in index.html resolves correctly. */

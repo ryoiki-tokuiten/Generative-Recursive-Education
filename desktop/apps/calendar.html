@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #c9d1d9; font-family: 'Inter', sans-serif; font-size: 13px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  #header {
+    display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
+    border-bottom: 1px solid #21262d; background: #161b22; flex-shrink: 0;
+  }
+  #month-nav { display: flex; align-items: center; gap: 0.5rem; }
+  .nav-btn { background: none; border: none; color: #8b949e; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .nav-btn:hover { background: #21262d; color: #c9d1d9; }
+  #month-label { font-size: 1.1rem; font-weight: 700; color: #e6edf3; min-width: 180px; letter-spacing: -0.02em; }
+  .today-btn { background: none; border: 1px solid #30363d; color: #8b949e; cursor: pointer; font-size: 11px; padding: 0.25rem 0.65rem; border-radius: 5px; font-family: inherit; transition: all 0.15s; }
+  .today-btn:hover { border-color: #388bfd; color: #388bfd; }
+  .view-tabs { display: flex; background: #21262d; border-radius: 6px; padding: 2px; margin-left: auto; }
+  .view-tab { font-size: 11px; padding: 0.2rem 0.65rem; border-radius: 4px; cursor: pointer; color: #8b949e; transition: all 0.15s; }
+  .view-tab.active { background: #388bfd; color: #fff; }
+
+  #cal-body { flex: 1; display: flex; overflow: hidden; }
+
+  /* CALENDAR GRID */
+  #cal-grid { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #day-headers { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid #21262d; }
+  .day-hdr { text-align: center; padding: 0.4rem; font-size: 11px; font-weight: 600; color: #484f58; text-transform: uppercase; letter-spacing: 0.06em; }
+  #days-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); overflow: hidden; }
+  .day-cell {
+    border-right: 1px solid #21262d; border-bottom: 1px solid #21262d;
+    padding: 0.4rem; cursor: pointer; position: relative; overflow: hidden;
+    transition: background 0.12s; min-height: 0;
+  }
+  .day-cell:nth-child(7n) { border-right: none; }
+  .day-cell:hover { background: #161b22; }
+  .day-cell.today .day-num { background: #388bfd; color: #fff; border-radius: 50%; }
+  .day-cell.selected { background: #1c2128; }
+  .day-cell.other-month .day-num { color: #30363d; }
+  .day-num { font-size: 12px; font-weight: 500; color: #8b949e; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; margin-bottom: 3px; flex-shrink: 0; }
+  .event-pill {
+    font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-bottom: 2px;
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 500;
+  }
+
+  /* SIDEBAR */
+  #cal-sidebar { width: 240px; flex-shrink: 0; border-left: 1px solid #21262d; display: flex; flex-direction: column; overflow: hidden; }
+  #sidebar-date { padding: 0.85rem 1rem; border-bottom: 1px solid #21262d; }
+  #sidebar-date .big-date { font-size: 2rem; font-weight: 700; color: #e6edf3; letter-spacing: -0.04em; }
+  #sidebar-date .day-name { font-size: 12px; color: #636e7b; margin-top: 2px; }
+  #sidebar-events { flex: 1; overflow-y: auto; padding: 0.75rem; }
+  #sidebar-events::-webkit-scrollbar { width: 3px; }
+  #sidebar-events::-webkit-scrollbar-thumb { background: #30363d; }
+  .event-section { margin-bottom: 0.75rem; }
+  .event-section-time { font-size: 10px; color: #484f58; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; }
+  .event-card {
+    background: #161b22; border-radius: 8px; padding: 0.6rem 0.75rem; margin-bottom: 0.4rem;
+    border-left: 3px solid; cursor: pointer; transition: background 0.12s;
+  }
+  .event-card:hover { background: #1c2128; }
+  .event-title { font-size: 12.5px; font-weight: 500; color: #e6edf3; margin-bottom: 3px; }
+  .event-meta { font-size: 11px; color: #636e7b; }
+  .add-event-btn {
+    margin: 0.75rem; background: #1f6feb22; border: 1px dashed #1f6feb44; color: #388bfd;
+    border-radius: 8px; padding: 0.5rem; font-size: 12px; cursor: pointer;
+    width: calc(100% - 1.5rem); font-family: inherit; transition: all 0.15s; text-align: center;
+  }
+  .add-event-btn:hover { background: #1f6feb33; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="month-nav">
+    <button class="nav-btn" id="btn-prev">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <span id="month-label"></span>
+    <button class="nav-btn" id="btn-next">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </div>
+  <button class="today-btn" id="btn-today">Today</button>
+  <div class="view-tabs">
+    <div class="view-tab active">Month</div>
+    <div class="view-tab">Week</div>
+    <div class="view-tab">Day</div>
+  </div>
+</div>
+
+<div id="cal-body">
+  <div id="cal-grid">
+    <div id="day-headers">
+      <div class="day-hdr">Sun</div><div class="day-hdr">Mon</div><div class="day-hdr">Tue</div>
+      <div class="day-hdr">Wed</div><div class="day-hdr">Thu</div><div class="day-hdr">Fri</div><div class="day-hdr">Sat</div>
+    </div>
+    <div id="days-grid"></div>
+  </div>
+
+  <div id="cal-sidebar">
+    <div id="sidebar-date">
+      <div class="big-date" id="sb-day">21</div>
+      <div class="day-name" id="sb-dayname">Monday, April 2026</div>
+    </div>
+    <div id="sidebar-events"></div>
+    <button class="add-event-btn">+ New Event</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const COLORS = {
+    work: { bg:'rgba(56,139,253,0.2)', border:'#388bfd', text:'#388bfd' },
+    personal: { bg:'rgba(87,171,90,0.2)', border:'#57ab5a', text:'#57ab5a' },
+    health: { bg:'rgba(188,140,255,0.2)', border:'#bc8cff', text:'#bc8cff' },
+    meeting: { bg:'rgba(227,179,65,0.2)', border:'#e3b341', text:'#e3b341' },
+    deadline: { bg:'rgba(244,112,103,0.2)', border:'#f47067', text:'#f47067' },
+  };
+
+  const today = new Date();
+  let viewDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  let selectedDate = new Date(today);
+
+  const EVENTS = {};
+  function addEv(yr, mo, day, title, time, cat) {
+    const key = `${yr}-${mo}-${day}`;
+    if (!EVENTS[key]) EVENTS[key] = [];
+    EVENTS[key].push({ title, time, cat });
+  }
+
+  const y = today.getFullYear(), m = today.getMonth() + 1;
+  addEv(y, m, today.getDate(), 'Team standup', '09:00', 'meeting');
+  addEv(y, m, today.getDate(), 'Code review session', '11:00', 'work');
+  addEv(y, m, today.getDate(), 'Lunch — Alex', '13:00', 'personal');
+  addEv(y, m, today.getDate(), 'Sprint planning', '15:00', 'meeting');
+  addEv(y, m, today.getDate() + 1, 'Project deadline', '09:00', 'deadline');
+  addEv(y, m, today.getDate() + 1, 'Gym', '07:00', 'health');
+  addEv(y, m, today.getDate() + 2, 'Doctor appointment', '10:30', 'health');
+  addEv(y, m, today.getDate() + 2, '1:1 with manager', '14:00', 'meeting');
+  addEv(y, m, today.getDate() + 4, 'Weekend hike', '08:00', 'personal');
+  addEv(y, m, today.getDate() - 1, 'Design review', '14:00', 'work');
+  addEv(y, m, today.getDate() - 2, 'Release v1.0', '12:00', 'deadline');
+
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  function render() {
+    document.getElementById('month-label').textContent = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
+    const grid = document.getElementById('days-grid');
+    grid.innerHTML = '';
+    const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay();
+    const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+    const daysInPrevMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 0).getDate();
+
+    for (let i = 0; i < 42; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      let day, mo = viewDate.getMonth(), yr = viewDate.getFullYear(), isOther = false;
+
+      if (i < firstDay) { day = daysInPrevMonth - firstDay + i + 1; isOther = true; mo = (viewDate.getMonth() - 1 + 12) % 12; if (mo === 11) yr--; }
+      else if (i >= firstDay + daysInMonth) { day = i - firstDay - daysInMonth + 1; isOther = true; mo = (viewDate.getMonth() + 1) % 12; if (mo === 0) yr++; }
+      else { day = i - firstDay + 1; }
+
+      if (isOther) cell.classList.add('other-month');
+      const isToday = day === today.getDate() && mo === today.getMonth() && yr === today.getFullYear() && !isOther;
+      if (isToday) cell.classList.add('today');
+      if (day === selectedDate.getDate() && mo === selectedDate.getMonth() && yr === selectedDate.getFullYear()) cell.classList.add('selected');
+
+      const numEl = document.createElement('div');
+      numEl.className = 'day-num';
+      numEl.textContent = day;
+      cell.appendChild(numEl);
+
+      const key = `${yr}-${mo+1}-${day}`;
+      (EVENTS[key] || []).slice(0, 2).forEach(ev => {
+        const c = COLORS[ev.cat] || COLORS.work;
+        const pill = document.createElement('div');
+        pill.className = 'event-pill';
+        pill.style.background = c.bg;
+        pill.style.color = c.text;
+        pill.textContent = ev.title;
+        cell.appendChild(pill);
+      });
+
+      cell.addEventListener('click', () => {
+        selectedDate = new Date(yr, mo, day);
+        renderSidebar();
+        grid.querySelectorAll('.day-cell').forEach(c => c.classList.remove('selected'));
+        cell.classList.add('selected');
+      });
+
+      grid.appendChild(cell);
+    }
+    renderSidebar();
+  }
+
+  function renderSidebar() {
+    document.getElementById('sb-day').textContent = selectedDate.getDate();
+    document.getElementById('sb-dayname').textContent = `${DAYS[selectedDate.getDay()]}, ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+    const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()+1}-${selectedDate.getDate()}`;
+    const evs = EVENTS[key] || [];
+    const sbe = document.getElementById('sidebar-events');
+    sbe.innerHTML = '';
+    if (evs.length === 0) { sbe.innerHTML = '<div style="color:#484f58;font-size:12px;padding:0.5rem 0;text-align:center">No events</div>'; return; }
+    evs.forEach(ev => {
+      const c = COLORS[ev.cat] || COLORS.work;
+      const card = document.createElement('div');
+      card.className = 'event-card';
+      card.style.borderLeftColor = c.border;
+      card.innerHTML = `<div class="event-title">${ev.title}</div><div class="event-meta">${ev.time}</div>`;
+      sbe.appendChild(card);
+    });
+  }
+
+  document.getElementById('btn-prev').addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() - 1); render(); });
+  document.getElementById('btn-next').addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() + 1); render(); });
+  document.getElementById('btn-today').addEventListener('click', () => { viewDate = new Date(today.getFullYear(), today.getMonth(), 1); selectedDate = new Date(today); render(); });
+
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', () => { document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
