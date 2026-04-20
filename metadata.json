@@ -1,0 +1,5 @@
+{
+  "name": "Generative Recursive Education",
+  "description": "A generative educational interface where users can navigate topics and interactively spawn deep-dive sub-pages by clicking on specific UI elements.",
+  "requestFramePermissions": []
+}
