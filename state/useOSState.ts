@@ -27,7 +27,7 @@ export function useOSState() {
 
   // ── Window lifecycle ────────────────────────────────────────────────────
 
-  const openApp = useCallback((appId: string) => {
+  const openApp = useCallback(async (appId: string) => {
     const appHtml = APP_HTML_MAP[appId];
     if (!appHtml) return;
 
@@ -35,42 +35,67 @@ export function useOSState() {
     const app = getAppById(appId);
     const offset = cascadeRef.current * CASCADE;
     cascadeRef.current = (cascadeRef.current + 1) % 12;
-
-    const rootNodeId = uuidv4();
-    const rootNode: PageNode = {
-      id: rootNodeId,
-      parentId: null,
-      topic: app?.name || appId,
-      htmlContent: appHtml,
-      childrenIds: [],
-      timestamp: Date.now(),
-    };
-
     const z = nextZ();
 
-    // Flat setState calls — never nest setters inside functional updaters.
-    // React StrictMode double-invokes functional updaters in dev to detect
-    // side-effects, which caused duplicate window IDs when setWindows/setSessions
-    // were nested inside setZCounter's updater callback.
     setWindows(prev => [...prev, {
       windowId, appId,
       title: app?.name || appId,
       x: 80 + offset, y: 50 + offset,
       width: DEFAULT_W, height: DEFAULT_H,
       minimized: false, maximized: false,
-      zIndex: z, isLoading: false,
+      zIndex: z, isLoading: true,
     }]);
 
-    setSessions(prev => ({
-      ...prev,
-      [windowId]: {
-        windowId, appId,
-        nodeMap: { [rootNodeId]: rootNode },
-        currentNodeId: rootNodeId,
-        mode: 'browse' as AppMode,
-        pendingSelection: null,
-      },
-    }));
+    try {
+      const response = await fetch(`/api/nodes/${appId}`);
+      let nodeMap = await response.json();
+      let rootNodeId;
+      
+      if (Object.keys(nodeMap).length === 0) {
+        rootNodeId = uuidv4();
+        const rootNode: PageNode = {
+          id: rootNodeId,
+          parentId: null,
+          topic: app?.name || appId,
+          htmlContent: appHtml,
+          childrenIds: [],
+          timestamp: Date.now(),
+        };
+        
+        await fetch('/api/nodes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...rootNode, appId })
+        });
+        nodeMap = { [rootNodeId]: rootNode };
+      } else {
+        const root = Object.values(nodeMap).find((n: any) => !n.parentId);
+        rootNodeId = root ? (root as PageNode).id : Object.keys(nodeMap)[0];
+      }
+
+      setSessions(prev => ({
+        ...prev,
+        [windowId]: {
+          windowId, appId,
+          nodeMap,
+          currentNodeId: rootNodeId,
+          mode: 'browse' as AppMode,
+          pendingSelection: null,
+        },
+      }));
+    } catch (err) {
+      console.error('Failed to load app nodes:', err);
+      const rootNodeId = uuidv4();
+      const rootNode: PageNode = {
+        id: rootNodeId, parentId: null, topic: app?.name || appId, htmlContent: appHtml, childrenIds: [], timestamp: Date.now(),
+      };
+      setSessions(prev => ({
+        ...prev,
+        [windowId]: { windowId, appId, nodeMap: { [rootNodeId]: rootNode }, currentNodeId: rootNodeId, mode: 'browse', pendingSelection: null },
+      }));
+    } finally {
+      setWindows(prev => prev.map(w => w.windowId === windowId ? { ...w, isLoading: false } : w));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // stable — all mutable state accessed via refs
 
@@ -146,16 +171,25 @@ export function useOSState() {
 
   /** Append a new node to a session and navigate to it */
   const commitNode = useCallback((windowId: string, node: PageNode) => {
+    const session = sessionsRef.current[windowId];
+    if (session) {
+      fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...node, appId: session.appId })
+      }).catch(err => console.error('Failed to save node to DB:', err));
+    }
+
     setSessions(prev => {
-      const session = prev[windowId];
-      if (!session) return prev;
-      const parent = node.parentId ? session.nodeMap[node.parentId] : null;
+      const currentSession = prev[windowId];
+      if (!currentSession) return prev;
+      const parent = node.parentId ? currentSession.nodeMap[node.parentId] : null;
       return {
         ...prev,
         [windowId]: {
-          ...session,
+          ...currentSession,
           nodeMap: {
-            ...session.nodeMap,
+            ...currentSession.nodeMap,
             ...(parent ? {
               [parent.id]: { ...parent, childrenIds: [...parent.childrenIds, node.id] }
             } : {}),
@@ -254,7 +288,13 @@ export function useOSState() {
     });
   }, []);
 
-  const handleDeleteBranch = useCallback((windowId: string, nodeId: string) => {
+  const handleDeleteBranch = useCallback(async (windowId: string, nodeId: string) => {
+    try {
+      await fetch(`/api/nodes/${nodeId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete node from DB:', err);
+    }
+
     setSessions(prev => {
       const session = prev[windowId];
       if (!session) return prev;
@@ -265,7 +305,16 @@ export function useOSState() {
         const parent = updatedMap[node.parentId];
         updatedMap[parent.id] = { ...parent, childrenIds: parent.childrenIds.filter(id => id !== nodeId) };
       }
-      delete updatedMap[nodeId];
+      
+      const deleteRecursive = (id: string) => {
+        const n = updatedMap[id];
+        if (n && n.childrenIds) {
+          n.childrenIds.forEach(deleteRecursive);
+        }
+        delete updatedMap[id];
+      };
+      deleteRecursive(nodeId);
+
       return { ...prev, [windowId]: { ...session, nodeMap: updatedMap } };
     });
   }, []);

@@ -4,15 +4,22 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev:ui": "vite",
+    "dev:server": "node server.js",
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:server\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
     "@google/genai": "^1.35.0",
-    "react": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "lucide-react": "^0.562.0",
+    "pg": "^8.20.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
