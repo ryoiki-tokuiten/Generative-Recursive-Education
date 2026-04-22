@@ -14,17 +14,14 @@ Before starting the application, ensure you have the following installed on your
 If you are running this on a new device, follow these steps to set up the environment.
 
 ### 1. Database Setup
-You need a PostgreSQL database. You can create one via the terminal:
+You need a PostgreSQL database. You can quickly set this up using the provided `schema.sql` file via the terminal:
 
 ```bash
-# Connect to PostgreSQL
-psql -U postgres
-
-# Create the database
-CREATE DATABASE generative_os;
+# Connect to PostgreSQL and run the schema file
+psql -U postgres -f schema.sql
 ```
 
-*(Note: The application will automatically create the required `app_nodes` table when the server starts.)*
+*(Note: The application's Node.js backend will also automatically attempt to create the required `app_nodes` table when the server starts if it does not exist, but running `schema.sql` ensures the database `generative_os` itself is created first.)*
 
 ### 2. Environment Variables
 Create a `.env.local` file in the root directory and add your credentials:

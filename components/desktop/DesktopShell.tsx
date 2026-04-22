@@ -4,6 +4,7 @@ import { WindowState, AppSession } from '../../types';
 import { Taskbar } from './Taskbar';
 import { WindowManager } from './WindowManager';
 import { AppMode, SelectionEvent } from '../../types';
+import wallpaperImg from '../../wallpaper.jpg';
 
 interface DesktopShellProps {
   windows: WindowState[];
@@ -36,99 +37,13 @@ export const DesktopShell: React.FC<DesktopShellProps> = (props) => {
     onBack, onNavigateToBranch, onDeleteBranch, onExport, onImport, onResetSession,
   } = props;
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
-
-  // ── Animated wallpaper ─────────────────────────────────────────────────
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-
-    let W = 0, H = 0;
-    const resize = () => {
-      W = canvas.width = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    // Aurora orbs
-    const orbs = Array.from({ length: 5 }, (_, i) => ({
-      x: Math.random() * 1200,
-      y: Math.random() * 900,
-      r: 300 + Math.random() * 200,
-      hue: [220, 260, 200, 240, 210][i],
-      vx: (Math.random() - 0.5) * 0.15,
-      vy: (Math.random() - 0.5) * 0.15,
-    }));
-
-    // Stars
-    const stars = Array.from({ length: 120 }, () => ({
-      x: Math.random() * 1600,
-      y: Math.random() * 1200,
-      r: Math.random() * 1.1 + 0.2,
-      a: Math.random() * 0.6 + 0.1,
-      twinkle: Math.random() * Math.PI * 2,
-      twinkleSpeed: 0.01 + Math.random() * 0.02,
-    }));
-
-    let t = 0;
-    const draw = () => {
-      t += 0.003;
-      ctx.fillStyle = '#070b14';
-      ctx.fillRect(0, 0, W, H);
-
-      // Aurora orbs
-      orbs.forEach(orb => {
-        orb.x += orb.vx;
-        orb.y += orb.vy;
-        if (orb.x < -orb.r) orb.x = W + orb.r;
-        if (orb.x > W + orb.r) orb.x = -orb.r;
-        if (orb.y < -orb.r) orb.y = H + orb.r;
-        if (orb.y > H + orb.r) orb.y = -orb.r;
-
-        const hShift = Math.sin(t * 0.5 + orb.hue) * 15;
-        const grad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r);
-        grad.addColorStop(0, `hsla(${orb.hue + hShift}, 70%, 40%, 0.07)`);
-        grad.addColorStop(0.5, `hsla(${orb.hue + hShift}, 60%, 30%, 0.04)`);
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-      });
-
-      // Stars
-      stars.forEach(s => {
-        s.twinkle += s.twinkleSpeed;
-        const flicker = s.a * (0.7 + 0.3 * Math.sin(s.twinkle));
-        ctx.beginPath();
-        ctx.arc(s.x % W, s.y % H, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 215, 240, ${flicker})`;
-        ctx.fill();
-      });
-
-      // Subtle horizontal scan line gradient
-      const scanGrad = ctx.createLinearGradient(0, 0, 0, H);
-      scanGrad.addColorStop(0, 'rgba(0,0,0,0.15)');
-      scanGrad.addColorStop(0.5, 'transparent');
-      scanGrad.addColorStop(1, 'rgba(0,0,0,0.2)');
-      ctx.fillStyle = scanGrad;
-      ctx.fillRect(0, 0, W, H);
-
-      animRef.current = requestAnimationFrame(draw);
-    };
-    draw();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animRef.current);
-    };
-  }, []);
-
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Animated wallpaper */}
-      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
+      {/* Static wallpaper */}
+      <div 
+        className="absolute inset-0 pointer-events-none bg-cover bg-center"
+        style={{ backgroundImage: `url(${wallpaperImg})` }}
+      />
 
       {/* Desktop area (above taskbar height) */}
       <div className="absolute inset-0 overflow-hidden" style={{ bottom: 48 }}>
