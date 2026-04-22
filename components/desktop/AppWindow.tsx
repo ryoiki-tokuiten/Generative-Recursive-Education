@@ -147,20 +147,20 @@ export const AppWindow: React.FC<AppWindowProps> = ({
           onDoubleClick={onMaximize}
         >
           {/* Traffic-light buttons */}
-          <div className="flex items-center gap-1.5 win-btn">
+          <div className="flex items-center gap-1.5 win-btn cursor-default">
             <button
               onClick={(e) => { e.stopPropagation(); onClose(); }}
-              className="w-3 h-3 rounded-full bg-[#f47067] hover:brightness-110 transition-all border border-black/10 flex-shrink-0"
+              className="w-3 h-3 rounded-full bg-[#f47067] hover:brightness-110 transition-all border border-black/10 flex-shrink-0 cursor-default"
               title="Close"
             />
             <button
               onClick={(e) => { e.stopPropagation(); onMinimize(); }}
-              className="w-3 h-3 rounded-full bg-[#e3b341] hover:brightness-110 transition-all border border-black/10 flex-shrink-0"
+              className="w-3 h-3 rounded-full bg-[#e3b341] hover:brightness-110 transition-all border border-black/10 flex-shrink-0 cursor-default"
               title="Minimize"
             />
             <button
               onClick={(e) => { e.stopPropagation(); onMaximize(); }}
-              className="w-3 h-3 rounded-full bg-[#57ab5a] hover:brightness-110 transition-all border border-black/10 flex-shrink-0"
+              className="w-3 h-3 rounded-full bg-[#57ab5a] hover:brightness-110 transition-all border border-black/10 flex-shrink-0 cursor-default"
               title="Maximize"
             />
           </div>

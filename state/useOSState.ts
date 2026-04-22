@@ -13,6 +13,7 @@ const DEFAULT_H = 620;
 const CASCADE = 30;
 
 export function useOSState() {
+  const [isInitialized, setIsInitialized] = useState(false);
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [sessions, setSessions] = useState<Record<string, AppSession>>({});
   // Use a ref for the z-counter so we never need it in useCallback deps
@@ -24,6 +25,80 @@ export function useOSState() {
   // Stable refs so async callbacks always have latest values without re-creating
   const sessionsRef = useRef(sessions);
   useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+
+  // ── State Persistence (Load & Save) ─────────────────────────────────────
+  
+  // Load initial state
+  useEffect(() => {
+    async function loadOSState() {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) throw new Error('Failed to fetch OS state');
+        const data = await res.json();
+        
+        const loadedWindows: WindowState[] = data.windows || [];
+        const loadedSessions: Record<string, Partial<AppSession>> = data.sessions || {};
+        
+        const fullSessions: Record<string, AppSession> = {};
+        let maxZ = 10;
+        
+        for (const win of loadedWindows) {
+          if (win.zIndex > maxZ) maxZ = win.zIndex;
+          const meta = loadedSessions[win.windowId];
+          if (!meta) continue;
+          
+          try {
+            const nodeRes = await fetch(`/api/nodes/${win.appId}`);
+            if (!nodeRes.ok) throw new Error('Failed to load nodes');
+            const nodeMap = await nodeRes.json();
+            
+            fullSessions[win.windowId] = {
+              windowId: win.windowId,
+              appId: win.appId,
+              nodeMap,
+              currentNodeId: meta.currentNodeId || Object.keys(nodeMap)[0],
+              mode: meta.mode || 'browse',
+              pendingSelection: null,
+            };
+          } catch (err) {
+            console.error(`Failed to restore session for window ${win.windowId}`, err);
+          }
+        }
+        
+        zRef.current = maxZ;
+        setWindows(loadedWindows);
+        setSessions(fullSessions);
+      } catch (e) {
+        console.error('OS State Init Error:', e);
+      } finally {
+        setIsInitialized(true);
+      }
+    }
+    loadOSState();
+  }, []);
+
+  // Save state whenever it changes
+  useEffect(() => {
+    if (!isInitialized) return;
+    const timeout = setTimeout(() => {
+      // Strip nodeMap to prevent massive payloads
+      const strippedSessions = Object.fromEntries(
+        Object.entries(sessions).map(([k, v]) => [k, {
+          windowId: v.windowId,
+          appId: v.appId,
+          currentNodeId: v.currentNodeId,
+          mode: v.mode
+        }])
+      );
+      
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ windows, sessions: strippedSessions })
+      }).catch(e => console.error('Failed to save OS state:', e));
+    }, 1000); // 1s debounce
+    return () => clearTimeout(timeout);
+  }, [windows, sessions, isInitialized]);
 
   // ── Window lifecycle ────────────────────────────────────────────────────
 
@@ -348,6 +423,7 @@ export function useOSState() {
   }, []);
 
   return {
+    isInitialized,
     windows,
     sessions,
     openApp,

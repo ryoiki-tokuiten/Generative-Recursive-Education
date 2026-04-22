@@ -41,3 +41,14 @@ CREATE INDEX IF NOT EXISTS idx_app_nodes_app_id
 -- Used when walking up the tree to update a parent's children_ids on delete.
 CREATE INDEX IF NOT EXISTS idx_app_nodes_parent_id
     ON app_nodes (parent_id);
+
+-- =============================================================================
+-- Global OS State: os_state
+--
+-- Persists the desktop layout and active sessions.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS os_state (
+    id             INT         PRIMARY KEY DEFAULT 1,
+    windows        JSONB       NOT NULL DEFAULT '[]'::jsonb,
+    sessions       JSONB       NOT NULL DEFAULT '{}'::jsonb
+);

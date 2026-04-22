@@ -67,6 +67,9 @@ Generate the next complete, standalone HTML screen for the ${appName} applicatio
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
+      config: {
+        thinkingLevel: "high"
+      }
     });
     return (response.text || "").replace(CLEAN_REGEX, '').trim();
   } catch (error) {

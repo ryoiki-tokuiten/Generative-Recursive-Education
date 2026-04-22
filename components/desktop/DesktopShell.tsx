@@ -4,7 +4,6 @@ import { WindowState, AppSession } from '../../types';
 import { Taskbar } from './Taskbar';
 import { WindowManager } from './WindowManager';
 import { AppMode, SelectionEvent } from '../../types';
-import wallpaperImg from '../../wallpaper.jpg';
 
 interface DesktopShellProps {
   windows: WindowState[];
@@ -42,7 +41,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = (props) => {
       {/* Static wallpaper */}
       <div 
         className="absolute inset-0 pointer-events-none bg-cover bg-center"
-        style={{ backgroundImage: `url(${wallpaperImg})` }}
+        style={{ backgroundImage: `url('/wallpaper.jpg')` }}
       />
 
       {/* Desktop area (above taskbar height) */}

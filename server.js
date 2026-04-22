@@ -45,6 +45,12 @@ async function initDB() {
         children_ids JSONB,
         timestamp BIGINT
       );
+
+      CREATE TABLE IF NOT EXISTS os_state (
+        id INT PRIMARY KEY DEFAULT 1,
+        windows JSONB NOT NULL DEFAULT '[]'::jsonb,
+        sessions JSONB NOT NULL DEFAULT '{}'::jsonb
+      );
     `);
     client.release();
     console.log('PostgreSQL Database connected and schema verified.');
@@ -57,6 +63,35 @@ async function initDB() {
 initDB();
 
 // API Endpoints
+
+// 0. OS State endpoints
+app.get('/api/state', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT windows, sessions FROM os_state WHERE id = 1');
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.json({ windows: [], sessions: {} });
+    }
+  } catch (err) {
+    console.error('GET /api/state error:', err);
+    res.status(500).json({ error: 'Failed to fetch OS state' });
+  }
+});
+
+app.post('/api/state', async (req, res) => {
+  try {
+    const { windows, sessions } = req.body;
+    await pool.query(`
+      INSERT INTO os_state (id, windows, sessions) VALUES (1, $1, $2)
+      ON CONFLICT (id) DO UPDATE SET windows = EXCLUDED.windows, sessions = EXCLUDED.sessions
+    `, [JSON.stringify(windows), JSON.stringify(sessions)]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('POST /api/state error:', err);
+    res.status(500).json({ error: 'Failed to save OS state' });
+  }
+});
 
 // 1. Get all nodes for an app
 app.get('/api/nodes/:appId', async (req, res) => {

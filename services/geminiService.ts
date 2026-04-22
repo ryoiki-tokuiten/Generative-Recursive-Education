@@ -66,8 +66,11 @@ Do not explain what you are going to do. **Do not list features.** Immediately g
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
+      config: {
+        thinkingLevel: "high"
+      }
     });
-    
+
     return (response.text || "").replace(CLEAN_REGEX, '').trim();
   } catch (error) {
     console.error("Gemini API Error:", error);
