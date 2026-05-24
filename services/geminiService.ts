@@ -8,7 +8,10 @@ const getClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
-const MODEL_NAME = 'gemini-3.1-flash-lite';
+const MODEL_NAME = 'gemma-4-26b-a4b-it';
+
+// gemma-4-31b-it
+// gemma-4-26b-a4b-it
 
 const CLEAN_REGEX = /```html|```/g;
 
@@ -3839,7 +3842,7 @@ Do not explain what you are going to do. **Do not list features.** Immediately g
     try {
         const response = await ai.models.generateContent({
             model: MODEL_NAME,
-            contents: prompt,
+            contents: prompt
         });
 
         return (response.text || "").replace(CLEAN_REGEX, '').trim();

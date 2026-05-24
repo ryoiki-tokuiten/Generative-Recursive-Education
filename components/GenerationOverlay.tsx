@@ -22,10 +22,6 @@ export const GenerationOverlay: React.FC<GenerationOverlayProps> = ({
       <p className="text-sm leading-relaxed text-[#94a3b8]">
         Designing the structure, interactive explanations, and visual layer.
       </p>
-
-      <div className="mt-8 h-1 overflow-hidden rounded-full bg-[#1a1a24]">
-        <div className="h-full w-2/5 animate-pulse rounded-full bg-[#00e599] shadow-[0_0_16px_rgba(0,229,153,0.55)]" />
-      </div>
     </div>
   </div>
 );
