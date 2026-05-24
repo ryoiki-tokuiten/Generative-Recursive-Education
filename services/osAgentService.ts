@@ -53,10 +53,10 @@ export const generateOSFollowUp = async (
 CURRENT APP: ${appName}
 
 CURRENT SCREEN HTML (first 3000 chars for context):
-${currentHtml.slice(0, 3000)}
+${currentHtml}
 
 USER CLICKED THIS ELEMENT:
-${clickedElementHtml.slice(0, 1000)}
+${clickedElementHtml}
 
 USER'S REQUEST / WHAT TO SHOW NEXT:
 "${userPrompt}"
