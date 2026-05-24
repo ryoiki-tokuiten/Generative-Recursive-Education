@@ -1,33 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GenLearn</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      /* Custom scrollbar for better aesthetics */
+      :root {
+        --color-obsidian: #0a0a0c;
+        --color-surface: #121217;
+        --color-panel: #1a1a24;
+        --color-border: #2a2a35;
+        --color-accent: #00e599;
+        --color-text-main: #e2e8f0;
+        --color-text-muted: #94a3b8;
+      }
+
+      html, body, #root {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--color-obsidian);
+        color: var(--color-text-main);
+        font-family: Inter, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      .font-mono {
+        font-family: "Fira Code", ui-monospace, monospace;
+      }
+
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: var(--color-surface);
       }
       ::-webkit-scrollbar-thumb {
-        background: #888;
+        background: var(--color-border);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #555;
+        background: #3f3f4e;
       }
-      
-      /* Interactive Mode Highlights */
-      .interactive-hover {
-        outline: 3px solid #3b82f6 !important;
-        cursor: help !important;
-        background-color: rgba(59, 130, 246, 0.1) !important;
-        transition: all 0.2s ease;
+
+      .react-flow__controls {
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        box-shadow: none;
+      }
+
+      .react-flow__controls-button {
+        background: var(--color-surface);
+        border-bottom-color: var(--color-border);
+        color: var(--color-text-muted);
+        fill: currentColor;
+      }
+
+      .react-flow__controls-button:hover {
+        background: var(--color-panel);
+        color: var(--color-accent);
       }
     </style>
   <script type="importmap">
@@ -42,9 +82,8 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-slate-50 text-slate-900">
+  <body>
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

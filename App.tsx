@@ -1,17 +1,24 @@
 import React, { useState, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { PageNode, NodeMap, AppMode, SelectionEvent } from './types';
 import { generateInitialLesson, generateFollowUpLesson } from './services/geminiService';
 import { GenerativeCanvas } from './components/GenerativeCanvas';
 import { FloatingControls } from './components/FloatingControls';
 import { InteractionModal } from './components/InteractionModal';
-import { Loader2 } from 'lucide-react';
+import { GenerationOverlay } from './components/GenerationOverlay';
+import { GraphView } from './components/GraphView';
+import { ArrowRight, Upload } from 'lucide-react';
+import {
+  collectBranchIds,
+  createGenerationId,
+  isBranchForSelection
+} from './utils/sessionGraph';
 
 const App: React.FC = () => {
   // --- State ---
   const [nodeMap, setNodeMap] = useState<NodeMap>({});
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>('browse');
+  const [workspaceView, setWorkspaceView] = useState<'lesson' | 'graph'>('lesson');
   const [isLoading, setIsLoading] = useState(false);
   const [initialTopic, setInitialTopic] = useState('');
 
@@ -29,12 +36,13 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const html = await generateInitialLesson(initialTopic);
-      const newId = uuidv4();
+      const topic = initialTopic.trim();
+      const html = await generateInitialLesson(topic);
+      const newId = createGenerationId({});
       const newNode: PageNode = {
         id: newId,
         parentId: null,
-        topic: initialTopic,
+        topic,
         htmlContent: html,
         childrenIds: [],
         timestamp: Date.now()
@@ -64,13 +72,15 @@ const App: React.FC = () => {
 
     try {
       const newHtml = await generateFollowUpLesson(currentNode.topic, selection.htmlSnippet, prompt);
-      const newId = uuidv4();
+      const newId = createGenerationId(nodeMap);
       const newNode: PageNode = {
         id: newId,
         parentId: currentNode.id,
         topic: prompt,
         htmlContent: newHtml,
-        triggerContext: selection.htmlSnippet, // Store for similarity check later
+        triggerContext: selection.htmlSnippet,
+        triggerSummary: selection.textSummary,
+        parentComponentId: selection.componentId,
         childrenIds: [],
         timestamp: Date.now()
       };
@@ -100,6 +110,7 @@ const App: React.FC = () => {
     setCurrentNodeId(nodeId);
     setPendingSelection(null);
     setMode('browse');
+    setWorkspaceView('lesson');
   };
 
   const handleDeleteBranch = (nodeId: string) => {
@@ -107,8 +118,6 @@ const App: React.FC = () => {
 
     setNodeMap(prev => {
       const updated = { ...prev };
-
-      // Remove from parent's children list
       const nodeToDelete = updated[nodeId];
       if (nodeToDelete && nodeToDelete.parentId && updated[nodeToDelete.parentId]) {
         const parent = updated[nodeToDelete.parentId];
@@ -118,9 +127,9 @@ const App: React.FC = () => {
         };
       }
 
-      // Note: Ideally we should recursively delete children of the deleted node,
-      // but for this PoC, leaving orphaned nodes in memory is acceptable as they become unreachable.
-      // A simple recursive cleanup could be added here.
+      collectBranchIds(prev, nodeId).forEach(id => {
+        delete updated[id];
+      });
 
       return updated;
     });
@@ -139,6 +148,7 @@ const App: React.FC = () => {
       setCurrentNodeId(null);
       setInitialTopic('');
       setMode('browse');
+      setWorkspaceView('lesson');
     }
   };
 
@@ -190,6 +200,7 @@ const App: React.FC = () => {
           setCurrentNodeId(data.currentNodeId || null);
           setInitialTopic(data.initialTopic || '');
           setMode('browse');
+          setWorkspaceView('lesson');
         }
       } catch (err) {
         alert("Failed to import file: " + (err as Error).message);
@@ -203,19 +214,23 @@ const App: React.FC = () => {
   };
 
 
-  // Helper to find existing branches for a specific selection
   const getExistingBranchesForSelection = useCallback(() => {
     if (!currentNode || !pendingSelection) return [];
 
-    // Simple heuristic: If the stored triggerContext is very similar to the current selection
-    // In a real app, use IDs or fuzzy matching. Here we do exact or substring match.
-    // Since generated HTML is static unless re-generated, strict equality might work if selection logic is consistent.
-    // We'll use a loose includes check or exact match.
-
     return currentNode.childrenIds
       .map(id => nodeMap[id])
-      .filter(child => child.triggerContext === pendingSelection.htmlSnippet);
+      .filter((child): child is PageNode => !!child && isBranchForSelection(child, pendingSelection));
   }, [currentNode, pendingSelection, nodeMap]);
+
+  const handleLessonMode = (nextMode: AppMode) => {
+    setMode(nextMode);
+    setWorkspaceView('lesson');
+  };
+
+  const handleToggleGraph = () => {
+    setPendingSelection(null);
+    setWorkspaceView(view => view === 'graph' ? 'lesson' : 'graph');
+  };
 
   // --- Render ---
 
@@ -234,77 +249,75 @@ const App: React.FC = () => {
   // Guard: if no session OR if currentNode doesn't exist in map, show landing page
   if (!currentNodeId || !currentNode) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0a0a0c] p-4 text-[#e2e8f0]">
         {fileInput}
+        {isLoading && <GenerationOverlay title="Generating your first lesson" />}
 
-        <div className="absolute top-4 right-4">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(0,229,153,0.08),transparent_38%)]" />
+        <div className="absolute right-6 top-6">
           <button
             onClick={handleImport}
-            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-2 text-sm"
+            className="flex items-center gap-2 rounded-full border border-[#2a2a35] bg-[#121217]/80 px-4 py-2.5 text-xs font-medium text-[#94a3b8] backdrop-blur-md transition-colors hover:border-[#00e599]/40 hover:text-[#00e599]"
           >
-            <span className="underline">Import Session</span>
+            <Upload size={14} />
+            Import Session
           </button>
         </div>
 
-        <div className="max-w-xl w-full text-center space-y-8">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-slate-900 tracking-tight">GenLearn</h1>
-            <p className="text-slate-500 text-lg">
-              Recursive, generative learning powered by Gemini. <br />
-              Enter a topic to generate a personalized interactive lesson.
-            </p>
+        <div className="relative w-full max-w-xl space-y-10 text-center">
+          <div className="space-y-6">
+            <h1 className="text-5xl font-semibold tracking-[-0.05em] text-[#e2e8f0] sm:text-6xl">
+              GenLearn
+            </h1>
           </div>
 
-          <form onSubmit={handleInitialSubmit} className="relative">
+          <form onSubmit={handleInitialSubmit} className="relative rounded-full border border-[#2a2a35] bg-[#121217] p-2 shadow-[0_24px_80px_rgba(0,0,0,0.38)] focus-within:border-[#00e599]/50">
             <input
               type="text"
               value={initialTopic}
               onChange={(e) => setInitialTopic(e.target.value)}
               placeholder="e.g. Quantum Entanglement, French Revolution, React Hooks..."
-              className="w-full p-4 pl-6 pr-14 rounded-full shadow-lg border-2 border-transparent focus:border-indigo-500 outline-none text-lg transition-all"
+              className="w-full rounded-full bg-transparent py-3.5 pl-5 pr-16 text-base text-[#e2e8f0] outline-none placeholder:text-[#64748b]"
               disabled={isLoading}
             />
             <button
               type="submit"
-              className="absolute right-2 top-2 p-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="absolute right-2 top-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-[#00e599] text-[#0a0a0c] transition-all hover:bg-[#4dffc1] disabled:cursor-not-allowed disabled:opacity-40"
               disabled={isLoading || !initialTopic.trim()}
             >
-              {isLoading ? <Loader2 className="animate-spin" /> : '→'}
+              <ArrowRight size={19} />
             </button>
           </form>
-
-          <div className="text-xs text-slate-400">
-            Powered by Google Gemini 3 Flash Preview
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#0a0a0c] text-[#e2e8f0] font-sans">
       {fileInput}
 
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-white/80 z-[100] flex flex-col items-center justify-center backdrop-blur-sm">
-          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-          <h2 className="text-xl font-medium text-slate-700 animate-pulse">Generative AI is creating your lesson...</h2>
-          <p className="text-slate-500 mt-2">Designing layout, writing content, and styling elements.</p>
-        </div>
+      {isLoading && <GenerationOverlay title="Generating recursive lesson" />}
+
+      {workspaceView === 'graph' ? (
+        <GraphView
+          nodeMap={nodeMap}
+          currentNodeId={currentNode.id}
+          onOpenGeneration={navigateToBranch}
+        />
+      ) : (
+        <GenerativeCanvas
+          htmlContent={currentNode.htmlContent}
+          mode={mode}
+          onElementSelect={handleElementSelect}
+        />
       )}
 
-      {/* Main Content Area */}
-      <GenerativeCanvas
-        htmlContent={currentNode.htmlContent}
-        mode={mode}
-        onElementSelect={handleElementSelect}
-      />
-
-      {/* Controls */}
       <FloatingControls
         mode={mode}
-        setMode={setMode}
+        setMode={handleLessonMode}
+        workspaceView={workspaceView}
+        onToggleGraph={handleToggleGraph}
         canGoBack={!!currentNode.parentId}
         onBack={handleBack}
         title={currentNode.topic}
@@ -313,8 +326,7 @@ const App: React.FC = () => {
         onImport={handleImport}
       />
 
-      {/* Interactive Modal */}
-      {pendingSelection && (
+      {workspaceView === 'lesson' && pendingSelection && (
         <InteractionModal
           selection={pendingSelection}
           onClose={() => setPendingSelection(null)}

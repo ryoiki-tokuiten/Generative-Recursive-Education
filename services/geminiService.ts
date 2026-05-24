@@ -1,21 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key not found");
-  }
-  return new GoogleGenAI({ apiKey });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        throw new Error("API Key not found");
+    }
+    return new GoogleGenAI({ apiKey });
 };
 
-const MODEL_NAME = 'gemma-4-26b-a4b-it';
+const MODEL_NAME = 'gemini-3.1-flash-lite';
 
 const CLEAN_REGEX = /```html|```/g;
 
 export const generateInitialLesson = async (topic: string): Promise<string> => {
-  const ai = getClient();
+    const ai = getClient();
 
-  const prompt = `
+    const prompt = `
     You are an expert educational teacher and an **Award-Winning Creative Developer and Digital Artist** known for defining the "AI-First" web aesthetic. You do not build "pages"; you orchestrate immersive digital experiences. Your work has been featured on Awwwards, FWA, and SiteInspire. You blend technical precision with artistic fluidity, treating the browser DOM as a canvas for high-fidelity motion and interaction.
 Create a comprehensive, visually appealing, standalone HTML layout explaining the topic: "${topic}".
 
@@ -3836,27 +3836,27 @@ Do not explain what you are going to do. **Do not list features.** Immediately g
   `;
 
 
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: prompt,
+        });
 
-    return (response.text || "").replace(CLEAN_REGEX, '').trim();
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw error;
-  }
+        return (response.text || "").replace(CLEAN_REGEX, '').trim();
+    } catch (error) {
+        console.error("Gemini API Error:", error);
+        throw error;
+    }
 };
 
 export const generateFollowUpLesson = async (
-  currentTopic: string,
-  clickedElementHtml: string,
-  userQuestion: string
+    currentTopic: string,
+    clickedElementHtml: string,
+    userQuestion: string
 ): Promise<string> => {
-  const ai = getClient();
+    const ai = getClient();
 
-  const prompt = `
+    const prompt = `
     Context: The user is exploring a deep-dive on "${currentTopic}".
     They clicked a specific section and asked: "${userQuestion}"
 
@@ -7668,15 +7668,15 @@ Do not explain what you are going to do. **Do not list features.** Immediately g
 
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: prompt,
+        });
 
-    return (response.text || "").replace(CLEAN_REGEX, '').trim();
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw error;
-  }
+        return (response.text || "").replace(CLEAN_REGEX, '').trim();
+    } catch (error) {
+        console.error("Gemini API Error:", error);
+        throw error;
+    }
 };

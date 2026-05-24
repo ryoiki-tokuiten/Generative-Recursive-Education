@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
+    "@dagrejs/dagre": "^3.0.0",
     "@google/genai": "^1.35.0",
-    "react": "^19.2.3",
+    "@xyflow/react": "^12.10.2",
     "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

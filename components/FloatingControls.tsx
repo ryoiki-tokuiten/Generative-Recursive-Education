@@ -1,10 +1,12 @@
 import React from 'react';
 import { AppMode } from '../types';
-import { ArrowLeft, Spline, MousePointer2, Trash2, Download, Upload } from 'lucide-react';
+import { ArrowLeft, GitBranch, Spline, MousePointer2, Trash2, Download, Upload } from 'lucide-react';
 
 interface FloatingControlsProps {
   mode: AppMode;
   setMode: (m: AppMode) => void;
+  workspaceView: 'lesson' | 'graph';
+  onToggleGraph: () => void;
   canGoBack: boolean;
   onBack: () => void;
   title: string;
@@ -16,6 +18,8 @@ interface FloatingControlsProps {
 export const FloatingControls: React.FC<FloatingControlsProps> = ({
   mode,
   setMode,
+  workspaceView,
+  onToggleGraph,
   canGoBack,
   onBack,
   title,
@@ -24,32 +28,33 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   onImport
 }) => {
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-md shadow-2xl rounded-full px-6 py-3 border border-slate-200 z-50 flex items-center gap-4 transition-all hover:scale-105">
+    <div className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 overflow-x-auto rounded-full border border-[#2a2a35] bg-[#121217]/90 px-4 py-3 shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl">
 
       {canGoBack && (
         <button
           onClick={onBack}
-          className="p-2 rounded-full hover:bg-slate-100 text-slate-700 transition-colors"
+          className="rounded-full p-2 text-[#94a3b8] transition-colors hover:bg-[#1a1a24] hover:text-[#e2e8f0]"
           title="Go Back"
         >
           <ArrowLeft size={20} />
         </button>
       )}
 
-      <div className="border-l border-slate-300 h-6 mx-1"></div>
+      {canGoBack && <div className="mx-1 h-6 border-l border-[#2a2a35]" />}
 
-      <div className="font-semibold text-slate-800 text-sm max-w-[200px] truncate">
+      <div className="max-w-[170px] truncate px-1 text-sm font-medium text-[#e2e8f0]">
         {title}
       </div>
 
-      <div className="border-l border-slate-300 h-6 mx-1"></div>
+      <div className="mx-1 h-6 border-l border-[#2a2a35]" />
 
-      <div className="flex bg-slate-100 rounded-full p-1">
+      <div className="flex rounded-full bg-[#1a1a24] p-1">
         <button
           onClick={() => setMode('browse')}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${mode === 'browse'
-            ? 'bg-white text-blue-600 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700'
+            && workspaceView === 'lesson'
+            ? 'bg-[#00e599]/15 text-[#00e599]'
+            : 'text-[#94a3b8] hover:text-[#e2e8f0]'
             }`}
         >
           <MousePointer2 size={14} />
@@ -58,8 +63,9 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
         <button
           onClick={() => setMode('interactive')}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${mode === 'interactive'
-            ? 'bg-indigo-600 text-white shadow-sm'
-            : 'text-slate-500 hover:text-slate-700'
+            && workspaceView === 'lesson'
+            ? 'bg-[#00e599]/15 text-[#00e599]'
+            : 'text-[#94a3b8] hover:text-[#e2e8f0]'
             }`}
         >
           <Spline size={14} />
@@ -67,30 +73,44 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
         </button>
       </div>
 
-      <div className="border-l border-slate-300 h-6 mx-1"></div>
+      <button
+        type="button"
+        onClick={onToggleGraph}
+        className={`flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-xs font-medium transition-colors ${
+          workspaceView === 'graph'
+            ? 'bg-[#00e599]/15 text-[#00e599]'
+            : 'text-[#94a3b8] hover:bg-[#1a1a24] hover:text-[#e2e8f0]'
+        }`}
+        title="Graph View"
+      >
+        <GitBranch size={15} />
+        Graph View
+      </button>
+
+      <div className="mx-1 h-6 border-l border-[#2a2a35]" />
 
       <div className="flex items-center gap-1">
         <button
           onClick={onExport}
-          className="p-2 rounded-full hover:bg-slate-100 text-slate-600 hover:text-indigo-600 transition-colors"
+          className="rounded-full p-2 text-[#94a3b8] transition-colors hover:bg-[#1a1a24] hover:text-[#00e599]"
           title="Export Session"
         >
           <Download size={18} />
         </button>
         <button
           onClick={onImport}
-          className="p-2 rounded-full hover:bg-slate-100 text-slate-600 hover:text-indigo-600 transition-colors"
+          className="rounded-full p-2 text-[#94a3b8] transition-colors hover:bg-[#1a1a24] hover:text-[#00e599]"
           title="Import Session"
         >
           <Upload size={18} />
         </button>
       </div>
 
-      <div className="border-l border-slate-300 h-6 mx-1"></div>
+      <div className="mx-1 h-6 border-l border-[#2a2a35]" />
 
       <button
         onClick={onReset}
-        className="p-2 rounded-full hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+        className="rounded-full p-2 text-[#ff3366]/70 transition-colors hover:bg-[#ff3366]/10 hover:text-[#ff3366]"
         title="Start Over"
       >
         <Trash2 size={18} />

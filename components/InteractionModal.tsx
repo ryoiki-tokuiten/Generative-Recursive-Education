@@ -28,42 +28,44 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#2a2a35] bg-[#121217] text-[#e2e8f0] shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
         
         {/* Header */}
-        <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="font-semibold text-slate-800">
+        <div className="flex items-center justify-between border-b border-[#2a2a35] bg-[#1a1a24] p-5">
+          <h3 className="font-semibold text-[#e2e8f0]">
             {view === 'existing' ? 'Previous Explorations' : 'Deep Dive'}
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+          <button onClick={onClose} className="text-[#94a3b8] transition-colors hover:text-[#e2e8f0]">x</button>
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto">
           
-          <div className="mb-6 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
-            <span className="font-bold block mb-1 text-xs uppercase tracking-wide text-blue-500">Selected Context</span>
+          <div className="mb-6 rounded-xl border border-[#00e599]/20 bg-[#00e599]/5 p-4 text-sm text-[#cbd5e1]">
+            <span className="mb-2 block font-mono text-[10px] uppercase tracking-[0.2em] text-[#00e599]">
+              {selection.componentId}
+            </span>
             <div className="line-clamp-3 italic">"{selection.textSummary}"</div>
           </div>
 
           {view === 'existing' && (
             <div className="space-y-4">
-              <p className="text-slate-600 text-sm">You have already explored this section. Choose a path:</p>
+              <p className="text-sm text-[#94a3b8]">This component already has branches. Choose a generation or create another.</p>
               
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {existingBranches.map(branch => (
                   <div key={branch.id} className="flex items-center gap-2 group">
                     <button
                       onClick={() => onNavigateToBranch(branch.id)}
-                      className="flex-1 text-left p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all text-sm"
+                      className="flex-1 rounded-xl border border-[#2a2a35] bg-[#1a1a24] p-3 text-left text-sm transition-all hover:border-[#00e599]/40 hover:bg-[#00e599]/5"
                     >
-                      <div className="font-medium text-slate-800 truncate">{branch.topic}</div>
-                      <div className="text-xs text-slate-500 mt-1">Created: {new Date(branch.timestamp).toLocaleTimeString()}</div>
+                      <div className="truncate font-medium text-[#e2e8f0]">{branch.topic}</div>
+                      <div className="mt-1 font-mono text-[11px] text-[#94a3b8]">{branch.id.toUpperCase()} / {new Date(branch.timestamp).toLocaleTimeString()}</div>
                     </button>
                     <button 
                         onClick={() => onDeleteBranch(branch.id)}
-                        className="p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-[#64748b] opacity-0 transition-colors hover:text-[#ff3366] group-hover:opacity-100"
                         title="Delete this branch"
                     >
                         ✕
@@ -72,10 +74,10 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-slate-100">
+              <div className="border-t border-[#2a2a35] pt-4">
                 <button 
                   onClick={() => setView('new')}
-                  className="w-full py-2.5 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors font-medium text-sm"
+                  className="w-full rounded-lg border border-[#00e599]/25 bg-[#00e599]/10 px-4 py-2.5 text-sm font-medium text-[#00e599] transition-colors hover:bg-[#00e599]/20"
                 >
                   Start New Exploration
                 </button>
@@ -86,14 +88,14 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
           {view === 'new' && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-[#cbd5e1]">
                   What would you like to know about this?
                 </label>
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="e.g., Explain this diagram in more detail..."
-                  className="w-full p-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px] resize-none text-slate-800"
+                  className="min-h-[100px] w-full resize-none rounded-lg border border-[#2a2a35] bg-[#1a1a24] p-3 text-[#e2e8f0] outline-none placeholder:text-[#64748b] focus:border-[#00e599]/60 focus:ring-1 focus:ring-[#00e599]/30"
                   autoFocus
                 />
               </div>
@@ -103,7 +105,7 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
                     <button
                         type="button"
                         onClick={() => setView('existing')}
-                        className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm"
+                        className="flex-1 rounded-lg border border-[#2a2a35] bg-[#1a1a24] px-4 py-2.5 text-sm font-medium text-[#cbd5e1] transition-colors hover:border-[#3f3f4e]"
                     >
                         Back to List
                     </button>
@@ -111,7 +113,7 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
                 <button
                   type="submit"
                   disabled={!prompt.trim()}
-                  className="flex-1 py-2.5 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 rounded-lg bg-[#00e599] px-4 py-2.5 text-sm font-medium text-[#0a0a0c] transition-colors hover:bg-[#4dffc1] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Generate Content
                 </button>

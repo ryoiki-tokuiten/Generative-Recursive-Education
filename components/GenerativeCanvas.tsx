@@ -52,6 +52,41 @@ const INJECTED_SCRIPT = `
        return target === document.body ? null : target;
     };
 
+    const getComponentId = (target) => {
+      if (target.dataset.recursiveComponentId) {
+        return target.dataset.recursiveComponentId;
+      }
+
+      const path = [];
+      let current = target;
+
+      while (current && current !== document.body && current !== document.documentElement) {
+        const tag = current.tagName.toLowerCase();
+        const siblings = current.parentElement
+          ? Array.from(current.parentElement.children).filter(sibling => sibling.tagName === current.tagName)
+          : [current];
+        const position = String(siblings.indexOf(current) + 1).padStart(2, '0');
+        path.unshift(tag + '-' + position);
+        current = current.parentElement;
+      }
+
+      const pathKey = path.join('-');
+      const semanticName = (target.id || target.getAttribute('aria-label') || target.tagName.toLowerCase())
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 18) || 'block';
+      let hash = 0;
+
+      for (let index = 0; index < pathKey.length; index += 1) {
+        hash = ((hash << 5) - hash + pathKey.charCodeAt(index)) | 0;
+      }
+
+      const componentId = 'cmp-' + semanticName + '-' + Math.abs(hash).toString(36).padStart(5, '0').slice(0, 5);
+      target.dataset.recursiveComponentId = componentId;
+      return componentId;
+    };
+
     document.addEventListener('mouseover', (e) => {
       if (currentMode !== 'interactive') return;
       const target = getTargetBlock(e.target);
@@ -77,12 +112,15 @@ const INJECTED_SCRIPT = `
       const target = getTargetBlock(e.target);
       if (target) {
         target.classList.remove('interactive-hover');
+        const componentId = getComponentId(target);
+        const htmlSnippet = target.outerHTML.replace(/\\sdata-recursive-component-id="[^"]*"/g, '');
         
         // Send to parent
         window.parent.postMessage({
           type: 'ELEMENT_SELECTED',
           payload: {
-            htmlSnippet: target.outerHTML,
+            componentId,
+            htmlSnippet,
             textSummary: (target.innerText || "").substring(0, 150)
           }
         }, '*');
