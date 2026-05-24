@@ -1,18 +1,17 @@
 import React from 'react';
 import { AppMode } from '../types';
-import { ArrowLeft, GitBranch, Spline, MousePointer2, Trash2, Download, Upload } from 'lucide-react';
+import { ArrowLeft, GitBranch, Spline, MousePointer2, Trash2, Database } from 'lucide-react';
 
 interface FloatingControlsProps {
   mode: AppMode;
   setMode: (m: AppMode) => void;
-  workspaceView: 'lesson' | 'graph';
+  workspaceView: 'lesson' | 'graph' | 'db';
   onToggleGraph: () => void;
   canGoBack: boolean;
   onBack: () => void;
   title: string;
   onReset: () => void;
-  onExport: () => void;
-  onImport: () => void;
+  onOpenDatabase: () => void;
 }
 
 export const FloatingControls: React.FC<FloatingControlsProps> = ({
@@ -24,8 +23,7 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
   onBack,
   title,
   onReset,
-  onExport,
-  onImport
+  onOpenDatabase
 }) => {
   return (
     <div className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 overflow-x-auto rounded-full border border-[#2a2a35] bg-[#121217]/90 px-4 py-3 shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl">
@@ -87,24 +85,19 @@ export const FloatingControls: React.FC<FloatingControlsProps> = ({
         Graph View
       </button>
 
-      <div className="mx-1 h-6 border-l border-[#2a2a35]" />
-
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onExport}
-          className="rounded-full p-2 text-[#94a3b8] transition-colors hover:bg-[#1a1a24] hover:text-[#00e599]"
-          title="Export Session"
-        >
-          <Download size={18} />
-        </button>
-        <button
-          onClick={onImport}
-          className="rounded-full p-2 text-[#94a3b8] transition-colors hover:bg-[#1a1a24] hover:text-[#00e599]"
-          title="Import Session"
-        >
-          <Upload size={18} />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onOpenDatabase}
+        className={`flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-xs font-medium transition-colors ${
+          workspaceView === 'db'
+            ? 'bg-[#00e599]/15 text-[#00e599]'
+            : 'text-[#94a3b8] hover:bg-[#1a1a24] hover:text-[#e2e8f0]'
+        }`}
+        title="Database Sessions"
+      >
+        <Database size={15} />
+        Database
+      </button>
 
       <div className="mx-1 h-6 border-l border-[#2a2a35]" />
 

@@ -6,7 +6,10 @@ import { FloatingControls } from './components/FloatingControls';
 import { InteractionModal } from './components/InteractionModal';
 import { GenerationOverlay } from './components/GenerationOverlay';
 import { GraphView } from './components/GraphView';
-import { ArrowRight, Upload } from 'lucide-react';
+import { DatabaseView } from './components/DatabaseView';
+import { getRun, syncRun } from './services/dbService';
+import { ArrowRight, Database } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   collectBranchIds,
   createGenerationId,
@@ -17,8 +20,9 @@ const App: React.FC = () => {
   // --- State ---
   const [nodeMap, setNodeMap] = useState<NodeMap>({});
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>('browse');
-  const [workspaceView, setWorkspaceView] = useState<'lesson' | 'graph'>('lesson');
+  const [workspaceView, setWorkspaceView] = useState<'lesson' | 'graph' | 'db'>('lesson');
   const [isLoading, setIsLoading] = useState(false);
   const [initialTopic, setInitialTopic] = useState('');
 
@@ -48,8 +52,15 @@ const App: React.FC = () => {
         timestamp: Date.now()
       };
 
-      setNodeMap({ [newId]: newNode });
+      const initialMap = { [newId]: newNode };
+      const runId = uuidv4();
+
+      // Save initial run and node to Database
+      await syncRun(runId, topic, newId, newId, initialMap);
+
+      setNodeMap(initialMap);
       setCurrentNodeId(newId);
+      setActiveRunId(runId);
     } catch (err) {
       alert("Failed to generate lesson. Please try again.");
     } finally {
@@ -65,7 +76,6 @@ const App: React.FC = () => {
     if (!currentNode || !pendingSelection) return;
 
     setIsLoading(true);
-    // Close modal immediately to show loader on main screen
     const selection = pendingSelection;
     setPendingSelection(null);
     setMode('browse'); // Reset mode while loading
@@ -85,20 +95,24 @@ const App: React.FC = () => {
         timestamp: Date.now()
       };
 
-      // Update State
-      setNodeMap(prev => {
-        const parent = prev[currentNode.id];
-        return {
-          ...prev,
-          [currentNode.id]: {
-            ...parent,
-            childrenIds: [...parent.childrenIds, newId]
-          },
-          [newId]: newNode
-        };
-      });
-      setCurrentNodeId(newId);
+      const parent = nodeMap[currentNode.id];
+      const updatedNodeMap = {
+        ...nodeMap,
+        [currentNode.id]: {
+          ...parent,
+          childrenIds: [...parent.childrenIds, newId]
+        },
+        [newId]: newNode
+      };
 
+      // Sync follow-up to DB if we have an active run
+      if (activeRunId) {
+        const rootId = Object.keys(updatedNodeMap).find(id => !updatedNodeMap[id].parentId) || null;
+        await syncRun(activeRunId, initialTopic, rootId, newId, updatedNodeMap);
+      }
+
+      setNodeMap(updatedNodeMap);
+      setCurrentNodeId(newId);
     } catch (err) {
       alert("Failed to generate follow-up. Please try again.");
     } finally {
@@ -106,113 +120,102 @@ const App: React.FC = () => {
     }
   };
 
-  const navigateToBranch = (nodeId: string) => {
+  const navigateToBranch = async (nodeId: string) => {
     setCurrentNodeId(nodeId);
     setPendingSelection(null);
     setMode('browse');
     setWorkspaceView('lesson');
+
+    // Sync path navigation to DB
+    if (activeRunId) {
+      try {
+        const rootId = Object.keys(nodeMap).find(id => !nodeMap[id].parentId) || null;
+        await syncRun(activeRunId, initialTopic, rootId, nodeId, nodeMap);
+      } catch (err) {
+        console.error("Failed to sync navigation in DB:", err);
+      }
+    }
   };
 
-  const handleDeleteBranch = (nodeId: string) => {
+  const handleDeleteBranch = async (nodeId: string) => {
     if (!currentNodeId) return;
 
-    setNodeMap(prev => {
-      const updated = { ...prev };
-      const nodeToDelete = updated[nodeId];
-      if (nodeToDelete && nodeToDelete.parentId && updated[nodeToDelete.parentId]) {
-        const parent = updated[nodeToDelete.parentId];
-        updated[parent.id] = {
-          ...parent,
-          childrenIds: parent.childrenIds.filter(id => id !== nodeId)
-        };
-      }
+    const updated = { ...nodeMap };
+    const nodeToDelete = updated[nodeId];
+    if (nodeToDelete && nodeToDelete.parentId && updated[nodeToDelete.parentId]) {
+      const parent = updated[nodeToDelete.parentId];
+      updated[parent.id] = {
+        ...parent,
+        childrenIds: parent.childrenIds.filter(id => id !== nodeId)
+      };
+    }
 
-      collectBranchIds(prev, nodeId).forEach(id => {
-        delete updated[id];
-      });
-
-      return updated;
+    const deletedIds = collectBranchIds(nodeMap, nodeId);
+    deletedIds.forEach(id => {
+      delete updated[id];
     });
+
+    let nextNodeId = currentNodeId;
+    if (currentNodeId && deletedIds.has(currentNodeId)) {
+      nextNodeId = nodeToDelete?.parentId || Object.keys(updated)[0] || null;
+    }
+
+    setNodeMap(updated);
+    setCurrentNodeId(nextNodeId);
+
+    // Sync branch deletion to DB
+    if (activeRunId && nextNodeId) {
+      try {
+        const rootId = Object.keys(updated).find(id => !updated[id].parentId) || null;
+        await syncRun(activeRunId, initialTopic, rootId, nextNodeId, updated);
+      } catch (err) {
+        console.error("Failed to sync deletion to DB:", err);
+      }
+    }
   };
 
   const handleBack = () => {
     if (currentNode?.parentId) {
-      setCurrentNodeId(currentNode.parentId);
-      setMode('browse');
+      navigateToBranch(currentNode.parentId);
     }
   };
 
   const handleReset = () => {
-    if (confirm("Are you sure you want to start over? All generated content will be lost.")) {
+    if (confirm("Are you sure you want to start over? Current session state in memory will be cleared.")) {
       setNodeMap({});
       setCurrentNodeId(null);
       setInitialTopic('');
+      setActiveRunId(null);
       setMode('browse');
       setWorkspaceView('lesson');
     }
   };
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleExport = () => {
-    if (!currentNodeId && Object.keys(nodeMap).length === 0) return;
-
-    const data = {
-      nodeMap,
-      currentNodeId,
-      initialTopic,
-      version: 1,
-      timestamp: Date.now()
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `genlearn-export-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleSelectRun = async (runId: string) => {
+    setIsLoading(true);
+    try {
+      const data = await getRun(runId);
+      setNodeMap(data.nodeMap);
+      setCurrentNodeId(data.currentNodeId);
+      setInitialTopic(data.title);
+      setActiveRunId(data.id);
+      setWorkspaceView('lesson');
+      setMode('browse');
+    } catch (err: any) {
+      alert("Failed to load run: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleImport = () => {
-    fileInputRef.current?.click();
+  const handleStartNewSession = () => {
+    setNodeMap({});
+    setCurrentNodeId(null);
+    setInitialTopic('');
+    setActiveRunId(null);
+    setMode('browse');
+    setWorkspaceView('lesson');
   };
-
-  const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content);
-
-        // Basic validation
-        if (!data.nodeMap || typeof data.nodeMap !== 'object') {
-          throw new Error("Invalid export file: missing nodeMap");
-        }
-
-        if (confirm("Importing will overwrite your current session. Continue?")) {
-          setNodeMap(data.nodeMap);
-          setCurrentNodeId(data.currentNodeId || null);
-          setInitialTopic(data.initialTopic || '');
-          setMode('browse');
-          setWorkspaceView('lesson');
-        }
-      } catch (err) {
-        alert("Failed to import file: " + (err as Error).message);
-      } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }
-    };
-    reader.readAsText(file);
-  };
-
 
   const getExistingBranchesForSelection = useCallback(() => {
     if (!currentNode || !pendingSelection) return [];
@@ -232,35 +235,43 @@ const App: React.FC = () => {
     setWorkspaceView(view => view === 'graph' ? 'lesson' : 'graph');
   };
 
+  const handleOpenDatabase = () => {
+    setPendingSelection(null);
+    setWorkspaceView('db');
+  };
+
   // --- Render ---
 
-  // Single persistent file input - lives outside conditional branches
-  // to avoid unmounting during view transitions
-  const fileInput = (
-    <input
-      type="file"
-      ref={fileInputRef}
-      onChange={onFileChange}
-      className="hidden"
-      accept=".json"
-    />
-  );
+  // Render Database View
+  if (workspaceView === 'db') {
+    return (
+      <div className="min-h-screen bg-[#0a0a0c] text-[#e2e8f0] font-sans">
+        <DatabaseView
+          currentRunId={activeRunId}
+          onSelectRun={handleSelectRun}
+          onClose={() => setWorkspaceView('lesson')}
+          onStartNewSession={handleStartNewSession}
+        />
+      </div>
+    );
+  }
 
   // Guard: if no session OR if currentNode doesn't exist in map, show landing page
   if (!currentNodeId || !currentNode) {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0a0a0c] p-4 text-[#e2e8f0]">
-        {fileInput}
         {isLoading && <GenerationOverlay title="Generating your first lesson" />}
 
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(0,229,153,0.08),transparent_38%)]" />
-        <div className="absolute right-6 top-6">
+        
+        {/* Top Right Navigation */}
+        <div className="absolute right-6 top-6 flex items-center gap-3">
           <button
-            onClick={handleImport}
+            onClick={handleOpenDatabase}
             className="flex items-center gap-2 rounded-full border border-[#2a2a35] bg-[#121217]/80 px-4 py-2.5 text-xs font-medium text-[#94a3b8] backdrop-blur-md transition-colors hover:border-[#00e599]/40 hover:text-[#00e599]"
           >
-            <Upload size={14} />
-            Import Session
+            <Database size={14} />
+            Database
           </button>
         </div>
 
@@ -295,8 +306,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-[#e2e8f0] font-sans">
-      {fileInput}
-
       {isLoading && <GenerationOverlay title="Generating recursive lesson" />}
 
       {workspaceView === 'graph' ? (
@@ -322,8 +331,7 @@ const App: React.FC = () => {
         onBack={handleBack}
         title={currentNode.topic}
         onReset={handleReset}
-        onExport={handleExport}
-        onImport={handleImport}
+        onOpenDatabase={handleOpenDatabase}
       />
 
       {workspaceView === 'lesson' && pendingSelection && (
