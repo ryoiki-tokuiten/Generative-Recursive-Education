@@ -1,54 +1,33 @@
--- Usage:  psql -U postgres -f schema.sql
+-- schema.sql
+-- Run this in your database to initialize the tables:
+-- psql -d generative_osw -f schema.sql
 
--- 1. Create the database (idempotent via shell-level check)
-SELECT 'CREATE DATABASE generative_os'
-  WHERE NOT EXISTS (
-    SELECT FROM pg_database WHERE datname = 'generative_os'
-  )\gexec
+-- Enable UUID extension if not already enabled (gen_random_uuid is built-in for PG 13+)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. Connect to the database
-\c generative_os;
+-- Create runs table
+CREATE TABLE IF NOT EXISTS runs (
+    id UUID PRIMARY KEY,
+    title TEXT NOT NULL,
+    root_node_id VARCHAR(255),
+    current_node_id VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
--- =============================================================================
--- Core table: app_nodes
---
--- Each row represents a single generated HTML screen (node) within an app.
--- The tree structure is maintained by parent_id, with ON DELETE CASCADE
--- ensuring the entire subtree is removed when a branch is deleted.
--- html_content is stored as BYTEA (gzip-compressed UTF-8 HTML).
--- children_ids is a JSONB array of child UUIDs, kept in sync with parent_id
--- for O(1) frontend tree reconstruction without recursive CTEs.
--- =============================================================================
-CREATE TABLE IF NOT EXISTS app_nodes (
-    id             VARCHAR     PRIMARY KEY,
-    app_id         VARCHAR     NOT NULL,
-    parent_id      VARCHAR     REFERENCES app_nodes(id) ON DELETE CASCADE,
-    topic          TEXT,
-    html_content   BYTEA,
+-- Create nodes table (stores the tree nodes)
+CREATE TABLE IF NOT EXISTS nodes (
+    id VARCHAR(255) PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    parent_id VARCHAR(255),
+    topic TEXT NOT NULL,
+    html_content TEXT NOT NULL,
     trigger_context TEXT,
-    children_ids   JSONB       NOT NULL DEFAULT '[]'::jsonb,
-    timestamp      BIGINT      NOT NULL
+    trigger_summary TEXT,
+    parent_component_id TEXT,
+    children_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    timestamp BIGINT NOT NULL
 );
 
--- =============================================================================
--- Indexes
--- =============================================================================
-
--- Primary query pattern: fetch the full node tree for a given app.
-CREATE INDEX IF NOT EXISTS idx_app_nodes_app_id
-    ON app_nodes (app_id);
-
--- Used when walking up the tree to update a parent's children_ids on delete.
-CREATE INDEX IF NOT EXISTS idx_app_nodes_parent_id
-    ON app_nodes (parent_id);
-
--- =============================================================================
--- Global OS State: os_state
---
--- Persists the desktop layout and active sessions.
--- =============================================================================
-CREATE TABLE IF NOT EXISTS os_state (
-    id             INT         PRIMARY KEY DEFAULT 1,
-    windows        JSONB       NOT NULL DEFAULT '[]'::jsonb,
-    sessions       JSONB       NOT NULL DEFAULT '{}'::jsonb
-);
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_nodes_run_id ON nodes(run_id);

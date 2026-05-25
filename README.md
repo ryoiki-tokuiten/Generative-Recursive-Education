@@ -1,58 +1,52 @@
-# Generative OS
+# GenLearn - Recursive AI-Generated Education
 
-A browser-based Generative Linux desktop environment that allows recursive generation and persistence of application states, completely backed by PostgreSQL.
+GenLearn is an interactive educational web app that generates customizable recursive lessons using the Gemini API. This version includes full persistent storage powered by a local PostgreSQL database, structured in a hierarchical graph format.
 
-## Prerequisites
+## Database Setup & Initialization
 
-Before starting the application, ensure you have the following installed on your system:
-- **Node.js** (v18 or higher)
-- **npm** (Node Package Manager)
-- **PostgreSQL** (v13 or higher)
+GenLearn uses a local PostgreSQL database to store and synchronize sessions and node graphs.
 
-## First-time Setup
+### 1. Configure the Environment
 
-If you are running this on a new device, follow these steps to set up the environment.
+Create or edit your `.env` or `.env.local` file in the root of the project. Specify your `DATABASE_URL` connection string.
 
-### 1. Database Setup
-You need a PostgreSQL database. You can quickly set this up using the provided `schema.sql` file via the terminal:
+**Option A: Unix Socket:**
+Use this option if local TCP password connections fail:
+```env
+DATABASE_URL=postgres:///generative_osw?host=/var/run/postgresql
+```
+
+**Option B: TCP/IP Connection**
+```env
+DATABASE_URL=postgres://<username>:<password>@localhost:5432/generative_osw
+```
+
+Make sure your PostgreSQL server is running, and the database `generative_osw` has been created.
+
+### 2. Table Schema Initialization
+
+You can initialize the tables using `schema.sql` via `psql`:
 
 ```bash
-# Connect to PostgreSQL and run the schema file
-psql -U postgres -f schema.sql
+psql -d generative_osw -f schema.sql
 ```
 
-*(Note: The application's Node.js backend will also automatically attempt to create the required `app_nodes` table when the server starts if it does not exist, but running `schema.sql` ensures the database `generative_os` itself is created first.)*
+> **Note:** The server is also configured to automatically run `schema.sql` table-creation checks on startup, so if you run the Vite development server, the tables will be created automatically if they do not exist!
 
-### 2. Environment Variables
-Create a `.env.local` file in the root directory and add your credentials:
+## Installation & Running
 
-```env
-# Your Gemini API Key for generations
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# PostgreSQL connection string
-# Format: postgres://<username>:<password>@<host>:<port>/<database_name>
-DATABASE_URL=postgres://postgres:password@localhost:5432/generative_os
-```
-
-### 3. Install Dependencies
-Run the following command to install all required packages for both the frontend and backend:
+### 1. Install Dependencies
+Install all package dependencies (including `pg` database driver and `uuid` modules):
 
 ```bash
 npm install
 ```
 
-## Running the Application
-
-To start both the Vite frontend development server and the Express backend database server simultaneously, simply run:
+### 2. Start the Development Server
+Run the Vite development server. This runs the frontend on port 3000 and mounts the database API middleware:
 
 ```bash
 npm run dev
 ```
 
-You should see output confirming that the "PostgreSQL Database connected and schema verified" and that Vite is running on `http://localhost:3000`.
-
-## Features
-- **Recursive Content Generation:** Each application acts as a self-contained HTML seed that can branch content via the OS-level UI agent.
-- **PostgreSQL Persistence:** All recursive states, interactions, and HTML screens are automatically compressed with `zlib` and stored safely in the database, allowing you to close and restore applications effortlessly.
-- **Cascading Deletions:** Fully supports branch deletions that automatically clear out sub-branches to keep the database tidy.
+Open [http://localhost:3000](http://localhost:3000) in your browser.

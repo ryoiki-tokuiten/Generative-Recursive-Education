@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SelectionEvent, PageNode } from '../types';
-import { X, GitBranch, Plus, Trash2 } from 'lucide-react';
+import { Copy, Trash2, Check } from 'lucide-react';
 
 interface InteractionModalProps {
   selection: SelectionEvent;
@@ -17,12 +17,18 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
   onSubmit,
   existingBranches,
   onNavigateToBranch,
-  onDeleteBranch,
+  onDeleteBranch
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [view, setView] = useState<'existing' | 'new'>(
-    existingBranches.length > 0 ? 'existing' : 'new'
-  );
+  const [view, setView] = useState<'existing' | 'new'>(existingBranches.length > 0 ? 'existing' : 'new');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (e: React.MouseEvent, text: string, id: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,137 +37,108 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[9500] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className="w-full max-w-md flex flex-col overflow-hidden rounded-2xl shadow-2xl"
-        style={{
-          background: '#161b22',
-          border: '1px solid #30363d',
-          maxHeight: '90vh',
-        }}
-      >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#2a2a35] bg-[#121217] text-[#e2e8f0] shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
+        
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#21262d]">
-          <div className="flex items-center gap-2">
-            <GitBranch size={15} className="text-[#388bfd]" />
-            <h3 className="text-[#e6edf3] font-semibold text-sm">
-              {view === 'existing' ? 'Existing Branches' : 'Branch from Selection'}
-            </h3>
+        <div className="flex items-center justify-between border-b border-[#2a2a35] bg-[#1a1a24] p-5">
+          <h3 className="font-semibold text-[#e2e8f0]">
+            {view === 'existing' ? 'Previous Explorations' : 'Deep Dive'}
+          </h3>
+          <button onClick={onClose} className="text-[#94a3b8] transition-colors hover:text-[#e2e8f0]">x</button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto">
+          
+          <div className="mb-6 rounded-xl border border-[#00e599]/20 bg-[#00e599]/5 p-4 text-sm text-[#cbd5e1]">
+            <span className="mb-2 block font-mono text-[10px] uppercase tracking-[0.2em] text-[#00e599]">
+              {selection.componentId}
+            </span>
+            <div className="line-clamp-3 italic">"{selection.textSummary}"</div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[#636e7b] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors"
-          >
-            <X size={14} />
-          </button>
-        </div>
 
-        {/* Selected context snippet */}
-        <div className="mx-5 mt-4 mb-3 p-3 rounded-lg border border-[#21262d] bg-[#0d1117]">
-          <span className="text-[10px] uppercase tracking-widest text-[#388bfd] font-mono block mb-1.5">
-            Selected Context
-          </span>
-          <p className="text-[#8b949e] text-xs italic line-clamp-3 leading-relaxed">
-            "{selection.textSummary || 'No text content'}"
-          </p>
-        </div>
-
-        {/* Body */}
-        <div className="px-5 pb-5 overflow-y-auto flex-1">
-
-          {/* ── Existing branches view ── */}
           {view === 'existing' && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[#8b949e] text-xs">
-                You've already explored this section. Continue an existing branch or create a new one:
-              </p>
-
-              <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
+            <div className="space-y-4">
+              <p className="text-sm text-[#94a3b8]">This component already has branches. Choose a generation or create another.</p>
+              
+              <div className="space-y-2 max-h-60 overflow-y-auto">
                 {existingBranches.map(branch => (
                   <div key={branch.id} className="flex items-center gap-2 group">
                     <button
                       onClick={() => onNavigateToBranch(branch.id)}
-                      className="flex-1 text-left p-3 rounded-lg border border-[#21262d] hover:border-[#388bfd] hover:bg-[#1f2a3a] transition-all"
+                      className="flex-1 min-w-0 rounded-xl border border-[#2a2a35] bg-[#1a1a24] p-3 text-left text-sm transition-all hover:border-[#00e599]/40 hover:bg-[#00e599]/5"
                     >
-                      <div className="text-[#c9d1d9] text-xs font-medium truncate">{branch.topic}</div>
-                      <div className="text-[#636e7b] text-[10px] mt-0.5 font-mono">
-                        {new Date(branch.timestamp).toLocaleTimeString()}
-                        {branch.childrenIds.length > 0 && ` · ${branch.childrenIds.length} branch${branch.childrenIds.length !== 1 ? 'es' : ''}`}
-                      </div>
+                      <div className="truncate font-medium text-[#e2e8f0]">{branch.topic}</div>
+                      <div className="mt-1 font-mono text-[11px] text-[#94a3b8]">{branch.id.toUpperCase()} / {new Date(branch.timestamp).toLocaleTimeString()}</div>
                     </button>
-                    <button
-                      onClick={() => onDeleteBranch(branch.id)}
-                      className="p-2 rounded-md text-[#484f58] hover:text-[#f47067] hover:bg-[#1c1a1a] transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete branch"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={(e) => handleCopy(e, branch.topic, branch.id)}
+                        className="rounded-full p-2 text-[#64748b] transition-colors hover:bg-[#00e599]/10 hover:text-[#00e599]"
+                        title="Copy Prompt"
+                      >
+                        {copiedId === branch.id ? <Check size={14} className="text-[#00e599]" /> : <Copy size={14} />}
+                      </button>
+                      <button 
+                          onClick={(e) => { e.stopPropagation(); onDeleteBranch(branch.id); }}
+                          className="rounded-full p-2 text-[#64748b] transition-colors hover:bg-[#ff3366]/10 hover:text-[#ff3366]"
+                          title="Delete this branch"
+                      >
+                          <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
 
-              <button
-                onClick={() => setView('new')}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-[#30363d] text-[#636e7b] hover:border-[#388bfd] hover:text-[#388bfd] hover:bg-[#1f2a3a] transition-all text-xs font-medium mt-1"
-              >
-                <Plus size={13} />
-                New Exploration
-              </button>
+              <div className="border-t border-[#2a2a35] pt-4">
+                <button 
+                  onClick={() => setView('new')}
+                  className="w-full rounded-lg border border-[#00e599]/25 bg-[#00e599]/10 px-4 py-2.5 text-sm font-medium text-[#00e599] transition-colors hover:bg-[#00e599]/20"
+                >
+                  Start New Exploration
+                </button>
+              </div>
             </div>
           )}
 
-          {/* ── New prompt view ── */}
           {view === 'new' && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div>
-                <label className="block text-[#8b949e] text-xs mb-2">
-                  What should the AI generate next from this element?
+                <label className="mb-2 block text-sm font-medium text-[#cbd5e1]">
+                  What would you like to know about this?
                 </label>
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="e.g. Show a detailed settings panel… / Expand this into a full screen…"
+                  placeholder="e.g., Explain this diagram in more detail..."
+                  className="min-h-[100px] w-full resize-none rounded-lg border border-[#2a2a35] bg-[#1a1a24] p-3 text-[#e2e8f0] outline-none placeholder:text-[#64748b] focus:border-[#00e599]/60 focus:ring-1 focus:ring-[#00e599]/30"
                   autoFocus
-                  className="w-full px-3 py-2.5 rounded-lg text-[#c9d1d9] text-sm resize-none min-h-[100px] outline-none transition-all"
-                  style={{
-                    background: '#0d1117',
-                    border: '1px solid #30363d',
-                    fontFamily: 'inherit',
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = '#388bfd'; e.target.style.boxShadow = '0 0 0 3px rgba(56,139,253,0.15)'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#30363d'; e.target.style.boxShadow = 'none'; }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit(e as any); }}
                 />
-                <div className="text-[10px] text-[#484f58] mt-1.5 text-right">⌘↵ to submit</div>
               </div>
-
-              <div className="flex gap-2.5">
+              
+              <div className="flex gap-3 pt-2">
                 {existingBranches.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setView('existing')}
-                    className="flex-1 py-2.5 rounded-lg text-xs font-medium text-[#8b949e] hover:text-[#c9d1d9] transition-colors border border-[#30363d] hover:border-[#484f58]"
-                  >
-                    ← Back to branches
-                  </button>
+                    <button
+                        type="button"
+                        onClick={() => setView('existing')}
+                        className="flex-1 rounded-lg border border-[#2a2a35] bg-[#1a1a24] px-4 py-2.5 text-sm font-medium text-[#cbd5e1] transition-colors hover:border-[#3f3f4e]"
+                    >
+                        Back to List
+                    </button>
                 )}
                 <button
                   type="submit"
                   disabled={!prompt.trim()}
-                  className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: '#1f6feb' }}
-                  onMouseEnter={(e) => { if (prompt.trim()) (e.target as HTMLElement).style.background = '#388bfd'; }}
-                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = '#1f6feb'; }}
+                  className="flex-1 rounded-lg bg-[#00e599] px-4 py-2.5 text-sm font-medium text-[#0a0a0c] transition-colors hover:bg-[#4dffc1] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Generate Branch
+                  Generate Content
                 </button>
               </div>
             </form>
           )}
+
         </div>
       </div>
     </div>
