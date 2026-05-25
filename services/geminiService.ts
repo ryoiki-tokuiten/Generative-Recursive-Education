@@ -8,7 +8,7 @@ const getClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
-const MODEL_NAME = 'gemini-3.1-flash-lite';
+const MODEL_NAME = 'gemma-4-31b-it';
 
 // gemma-4-31b-it
 // gemma-4-26b-a4b-it

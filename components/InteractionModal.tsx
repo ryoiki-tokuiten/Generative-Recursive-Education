@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SelectionEvent, PageNode } from '../types';
+import { Copy, Trash2, Check } from 'lucide-react';
 
 interface InteractionModalProps {
   selection: SelectionEvent;
@@ -20,6 +21,14 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
 }) => {
   const [prompt, setPrompt] = useState('');
   const [view, setView] = useState<'existing' | 'new'>(existingBranches.length > 0 ? 'existing' : 'new');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (e: React.MouseEvent, text: string, id: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,18 +67,27 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
                   <div key={branch.id} className="flex items-center gap-2 group">
                     <button
                       onClick={() => onNavigateToBranch(branch.id)}
-                      className="flex-1 rounded-xl border border-[#2a2a35] bg-[#1a1a24] p-3 text-left text-sm transition-all hover:border-[#00e599]/40 hover:bg-[#00e599]/5"
+                      className="flex-1 min-w-0 rounded-xl border border-[#2a2a35] bg-[#1a1a24] p-3 text-left text-sm transition-all hover:border-[#00e599]/40 hover:bg-[#00e599]/5"
                     >
                       <div className="truncate font-medium text-[#e2e8f0]">{branch.topic}</div>
                       <div className="mt-1 font-mono text-[11px] text-[#94a3b8]">{branch.id.toUpperCase()} / {new Date(branch.timestamp).toLocaleTimeString()}</div>
                     </button>
-                    <button 
-                        onClick={() => onDeleteBranch(branch.id)}
-                        className="p-2 text-[#64748b] opacity-0 transition-colors hover:text-[#ff3366] group-hover:opacity-100"
-                        title="Delete this branch"
-                    >
-                        ✕
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={(e) => handleCopy(e, branch.topic, branch.id)}
+                        className="rounded-full p-2 text-[#64748b] transition-colors hover:bg-[#00e599]/10 hover:text-[#00e599]"
+                        title="Copy Prompt"
+                      >
+                        {copiedId === branch.id ? <Check size={14} className="text-[#00e599]" /> : <Copy size={14} />}
+                      </button>
+                      <button 
+                          onClick={(e) => { e.stopPropagation(); onDeleteBranch(branch.id); }}
+                          className="rounded-full p-2 text-[#64748b] transition-colors hover:bg-[#ff3366]/10 hover:text-[#ff3366]"
+                          title="Delete this branch"
+                      >
+                          <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

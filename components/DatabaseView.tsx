@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getRuns, deleteRun, DbRun } from '../services/dbService';
-import { Trash2, Search, Calendar, GitBranch, ArrowLeft, Plus, Database, Loader } from 'lucide-react';
+import { Trash2, Search, Calendar, GitBranch, ArrowLeft, Plus, Database, Loader, Copy, Check } from 'lucide-react';
 
 interface DatabaseViewProps {
   currentRunId: string | null;
@@ -19,6 +19,14 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (e: React.MouseEvent, text: string, id: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Load runs on mount
   useEffect(() => {
@@ -167,7 +175,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
                   <div className="space-y-4">
                     {/* Card Title (Prompt) */}
                     <div className="space-y-1">
-                      <h3 className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight text-[#e2e8f0] group-hover:text-white">
+                      <h3 title={run.title} className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight text-[#e2e8f0] group-hover:text-white">
                         {run.title}
                       </h3>
                       {isActive && (
@@ -197,13 +205,22 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
                     <span className="text-[11px] font-medium text-[#64748b] group-hover:text-[#94a3b8]">
                       Click to load session
                     </span>
-                    <button
-                      onClick={(e) => handleDelete(e, run.id, run.title)}
-                      className="rounded-full p-2 text-[#64748b] hover:bg-[#ff3366]/10 hover:text-[#ff3366] transition-colors"
-                      title="Delete Session"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => handleCopy(e, run.title, run.id)}
+                        className="rounded-full p-2 text-[#64748b] hover:bg-[#00e599]/10 hover:text-[#00e599] transition-colors"
+                        title="Copy Prompt"
+                      >
+                        {copiedId === run.id ? <Check size={15} className="text-[#00e599]" /> : <Copy size={15} />}
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(e, run.id, run.title)}
+                        className="rounded-full p-2 text-[#64748b] hover:bg-[#ff3366]/10 hover:text-[#ff3366] transition-colors"
+                        title="Delete Session"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
